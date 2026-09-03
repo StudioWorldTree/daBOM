@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "dabom",
+  "project_id": "46ebf4a7-fd99-4a44-810b-6b43a094a5cf"
+}
