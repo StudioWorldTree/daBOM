@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createDb } from '../db';
 import { seed } from '../db/seed';
 import { createApi } from './app';
+import { createRoot } from './root';
 
 const MIGRATIONS = path.resolve(process.cwd(), 'drizzle');
 
@@ -24,13 +25,27 @@ describe('daBOM API', () => {
 		await client.close();
 	});
 
-	it('serves OpenAPI 3', async () => {
+	it('serves OpenAPI 3 at the versioned path and the well-known URL', async () => {
 		const res = await app.request('/openapi.json');
 		expect(res.status).toBe(200);
 		const spec = await res.json();
 		expect(spec.openapi).toMatch(/^3/);
 		expect(spec.info.title).toBe('daBOM');
 		expect(spec.paths['/items/{sku}/bom']).toBeTruthy();
+
+		const root = createRoot(app);
+		const wellKnown = await root.request('/.well-known/openapi.json');
+		expect(wellKnown.status).toBe(200);
+		expect(wellKnown.headers.get('content-type')).toMatch(/json/);
+		const fromWellKnown = await wellKnown.json();
+		expect(fromWellKnown.paths).toEqual(spec.paths);
+
+		const catalog = await root.request('/.well-known/api-catalog');
+		expect(catalog.status).toBe(200);
+		const cat = await catalog.json();
+		expect(cat.linkset[0].describedby.some((l: { href: string }) => l.href === '/.well-known/openapi.json')).toBe(
+			true
+		);
 	});
 
 	it('lists seeded items and every kit has a BOM', async () => {

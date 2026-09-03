@@ -466,7 +466,12 @@ export function createApi(db: DabomDb) {
 			title: 'daBOM',
 			version: '0.1.0',
 			description:
-				'Bill of materials for the All Systems Go AI camera. Every item has a BOM (leaves are empty). Source of truth is this REST API; the SvelteKit UI is a client.'
+				'Bill of materials for the All Systems Go AI camera. Every item has a BOM (leaves are empty). Source of truth is this REST API; the SvelteKit UI is a client. Canonical discovery: /.well-known/openapi.json'
+		},
+		servers: [{ url: '/api/v1', description: 'Versioned REST' }],
+		externalDocs: {
+			description: 'Well-known OpenAPI document',
+			url: '/.well-known/openapi.json'
 		},
 		tags: [
 			{ name: 'Meta' },

@@ -5,7 +5,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (event.url.pathname === '/favicon.ico') {
 		return new Response(null, { status: 302, headers: { location: '/favicon.svg' } });
 	}
-	if (event.url.pathname.startsWith('/api')) {
+	if (event.url.pathname.startsWith('/api') || event.url.pathname.startsWith('/.well-known/')) {
 		const app = await getRootApp();
 		return app.fetch(event.request);
 	}
