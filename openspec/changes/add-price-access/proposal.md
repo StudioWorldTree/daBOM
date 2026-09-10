@@ -12,7 +12,9 @@ honest.
 
 - Access ladder: Digi-Key, Mouser, Arrow **API** first; Firecrawl after API miss; headed Playwright MCP when the wall is a login
 - B&H and CTI/WDL are crawl/headed fallbacks, not day-one APIs
-- Quote rows append-only; preferred flag; provenance: method, URL, as-of
+- Quote rows append-only; same (item, vendor) supersedes preferred; PATCH cannot change price/url/method/checkedAt
+- Provenance: method `api|headed|crawl|seed|manual`, URL, checkedAt
+- Roll-up: latest per vendor, preferred vendor, else method rank api>headed>crawl>seed>manual
 - Capability: `bom-quotes`
 - Vendor adapter skills are `add-price-skills`
 
