@@ -12,4 +12,5 @@
 ## Feeds change
 
 Write-through upsert. Mint and collision are this change (left open by
-ADR-002). PDF parsing is skills, not this route.
+ADR-002). Markdown and PDF parsing are skills, not this route
+(send-back 2026-09-09 hole 4).
