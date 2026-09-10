@@ -23,3 +23,12 @@
 - [x] 201 response contract
 - [x] Drop markdown parser from this route (skills own it)
 - [x] Collision test shape: new root + seed match by MPN + name-collide 409
+
+Reader-added (re-advise, fable-5.1-arch-review, accept):
+
+- [ ] Floor: strike "or currently buy" from delta and design; promotion is new nodes only, existing buy/foundry parent is 409 (per "Cannot explode a buy SOM")
+- [ ] Identity: an incoming node with no (manufacturer, mpn) pair never collides; supplied existing sku matches
+- [ ] Scenario: MPN-only match reuses `t4000-som`; two rows sharing an MPN is 409
+- [ ] Delta: add a SHALL sentence for the 201 body (sku, action, floor, line ids)
+- [ ] Name-minted creates default `status: placeholder` (ingest node schema, not `ItemCreateSchema`'s `candidate`)
+- [ ] Lines go through `addBomLine` / `wouldCycle` with the transaction handle; cycle by sku reference is 409
