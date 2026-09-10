@@ -1,10 +1,18 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { bomLines, items, quotes, type DabomDb } from './db';
 
+/**
+ * The handle a transaction callback hands back. Every read/write helper here
+ * takes `Db` so ingest can run the same guards inside one transaction that a
+ * single-line POST runs against the pool.
+ */
+export type DabomTx = Parameters<Parameters<DabomDb['transaction']>[0]>[0];
+export type Db = DabomDb | DabomTx;
+
 export class HttpError extends Error {
 	constructor(
-		public status: 400 | 404 | 409 | 422,
+		public status: 400 | 404 | 409 | 415 | 422,
 		message: string,
 		public details?: unknown
 	) {
@@ -12,7 +20,7 @@ export class HttpError extends Error {
 	}
 }
 
-export async function getItemOrThrow(db: DabomDb, sku: string) {
+export async function getItemOrThrow(db: Db, sku: string) {
 	const row = await db.query.items.findFirst({
 		where: eq(items.sku, sku),
 		with: { quotes: true }
@@ -96,7 +104,7 @@ export function pickQuote<T extends QuoteRow>(rows: T[]) {
 	return pool.sort((a, b) => bestForVendor(a, b) || a.vendorId.localeCompare(b.vendorId))[0];
 }
 
-export async function wouldCycle(db: DabomDb, parentSku: string, childSku: string) {
+export async function wouldCycle(db: Db, parentSku: string, childSku: string) {
 	if (parentSku === childSku) return true;
 	const descendants = new Set<string>();
 	let frontier = [childSku];
@@ -143,7 +151,7 @@ export type BomLineView = {
 	extendedCents: number | null;
 };
 
-export async function listBom(db: DabomDb, parentSku: string): Promise<BomLineView[]> {
+export async function listBom(db: Db, parentSku: string): Promise<BomLineView[]> {
 	const child = alias(items, 'child');
 	const rows = await db
 		.select({
@@ -200,7 +208,7 @@ export async function listBom(db: DabomDb, parentSku: string): Promise<BomLineVi
 
 export type ExplodedRow = BomLineView & { path: string[]; qtyEach: number; qtyRollup: number };
 
-export async function explodeBom(db: DabomDb, rootSku: string): Promise<ExplodedRow[]> {
+export async function explodeBom(db: Db, rootSku: string): Promise<ExplodedRow[]> {
 	const out: ExplodedRow[] = [];
 	async function walk(sku: string, path: string[], factor: number) {
 		const lines = await listBom(db, sku);
@@ -238,7 +246,7 @@ export type Rollup = {
 	partCount: number;
 };
 
-export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
+export async function rollup(db: Db, rootSku: string): Promise<Rollup> {
 	const root = await getItemOrThrow(db, rootSku);
 	const exploded = await explodeBom(db, rootSku);
 	const missing = new Set<string>();
@@ -325,7 +333,7 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 	};
 }
 
-export async function whereUsed(db: DabomDb, sku: string) {
+export async function whereUsed(db: Db, sku: string) {
 	await getItemOrThrow(db, sku);
 	const parent = alias(items, 'parent');
 	const rows = await db
@@ -346,7 +354,7 @@ export async function whereUsed(db: DabomDb, sku: string) {
 }
 
 export async function addBomLine(
-	db: DabomDb,
+	db: Db,
 	parentSku: string,
 	body: {
 		childSku: string;
@@ -399,7 +407,7 @@ export async function addBomLine(
 }
 
 export async function updateBomLine(
-	db: DabomDb,
+	db: Db,
 	parentSku: string,
 	lineId: string,
 	patch: Partial<{
@@ -420,11 +428,290 @@ export async function updateBomLine(
 	return row;
 }
 
-export async function deleteBomLine(db: DabomDb, parentSku: string, lineId: string) {
+export async function deleteBomLine(db: Db, parentSku: string, lineId: string) {
 	const [row] = await db
 		.delete(bomLines)
 		.where(and(eq(bomLines.id, lineId), eq(bomLines.parentSku, parentSku)))
 		.returning();
 	if (!row) throw new HttpError(404, `BOM line ${lineId} not found on ${parentSku}`);
 	return row;
+}
+
+// --- ingest -----------------------------------------------------------
+// Write-through: one POST becomes items and BOM lines in one transaction.
+// There is no draft store, so every guard a single-line POST runs has to
+// run here too, against the transaction handle rather than the pool.
+
+const KEBAB = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
+ * The one slug function. Lowercase, NFKD, drop combining marks and anything
+ * still non-ASCII, collapse the rest to single hyphens, trim the ends.
+ * An empty result is the caller's 422 — a SKU is never invented from nothing.
+ */
+export function slugify(input: string) {
+	return input
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.replace(/[^\u0000-\u007f]/g, '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '');
+}
+
+/** Trimmed, case-folded, and empty-is-null, so " NVIDIA " and "nvidia" are one identity. */
+function key(value: string | null | undefined) {
+	const trimmed = (value ?? '').trim().toLowerCase();
+	return trimmed === '' ? null : trimmed;
+}
+
+export type IngestNode = {
+	sku?: string;
+	name?: string;
+	kind?: string;
+	category?: string;
+	status?: string;
+	floor?: string;
+	description?: string;
+	manufacturer?: string | null;
+	mpn?: string | null;
+	notes?: string | null;
+	source?: string | null;
+	qty?: number;
+	unit?: string;
+	role?: string;
+	lineNotes?: string | null;
+	optional?: boolean;
+	sortOrder?: number;
+	children?: IngestNode[];
+};
+
+/** Mirrors `itemFloors`; the DTO layer needs the union, not `string`. */
+export type FloorName = 'buy' | 'assemble' | 'foundry';
+
+export type IngestResult = {
+	sku: string;
+	action: 'created' | 'matched';
+	floor: FloorName;
+	lines: string[];
+	children: IngestResult[];
+};
+
+type Resolved = { sku: string; action: 'created' | 'matched'; floor: FloorName };
+
+async function matchIngestRow(
+	db: Db,
+	row: {
+		sku: string;
+		floor: string;
+		manufacturer: string | null;
+		mpn: string | null;
+		source: string | null;
+	},
+	node: IngestNode,
+	source: string | null,
+	hasChildren: boolean
+): Promise<Resolved> {
+	// "Cannot explode a buy SOM." Promotion is for nodes this request mints;
+	// an existing leaf keeps its floor and the whole request is 409.
+	if (hasChildren && row.floor !== 'assemble') {
+		throw new HttpError(
+			409,
+			`${row.sku} has floor ${row.floor}; ingest cannot hang children on an existing ${row.floor} item`
+		);
+	}
+	const patch: Partial<typeof items.$inferInsert> = {};
+	if (row.manufacturer == null && node.manufacturer?.trim())
+		patch.manufacturer = node.manufacturer.trim();
+	if (row.mpn == null && node.mpn?.trim()) patch.mpn = node.mpn.trim();
+	const incomingSource = node.source ?? source;
+	if (row.source == null && incomingSource) patch.source = incomingSource;
+	// Fill nulls only. Name, kind, category, status and floor on a matched
+	// row are what a human or the seed decided; ingest does not relitigate.
+	if (Object.keys(patch).length) {
+		await db
+			.update(items)
+			.set({ ...patch, updatedAt: new Date() })
+			.where(eq(items.sku, row.sku));
+	}
+	return { sku: row.sku, action: 'matched', floor: row.floor as FloorName };
+}
+
+async function createIngestRow(
+	db: Db,
+	sku: string,
+	node: IngestNode,
+	source: string | null,
+	hasChildren: boolean
+): Promise<Resolved> {
+	const [row] = await db
+		.insert(items)
+		.values({
+			sku,
+			name: node.name?.trim() || sku,
+			kind: node.kind ?? (hasChildren ? 'assembly' : 'part'),
+			category: node.category ?? 'accessory',
+			// Not `candidate`: a node ingest invented has nobody standing
+			// behind it until someone looks.
+			status: node.status ?? 'placeholder',
+			floor: hasChildren ? 'assemble' : (node.floor ?? 'buy'),
+			description: node.description ?? '',
+			manufacturer: node.manufacturer?.trim() || null,
+			mpn: node.mpn?.trim() || null,
+			notes: node.notes ?? null,
+			source: node.source ?? source
+		})
+		.returning();
+	return { sku: row.sku, action: 'created', floor: row.floor as FloorName };
+}
+
+/**
+ * Identity, in the order the delta pins: pair match, MPN-only match,
+ * supplied sku, mint. A minted or supplied sku that lands on a *different*
+ * identity is 409 — ingest never appends a `-2` suffix.
+ */
+async function resolveIngestNode(
+	db: Db,
+	node: IngestNode,
+	source: string | null,
+	hasChildren: boolean
+): Promise<Resolved> {
+	const mfr = key(node.manufacturer);
+	const mpn = key(node.mpn);
+
+	if (mpn) {
+		const rows = await db
+			.select()
+			.from(items)
+			.where(sql`lower(btrim(${items.mpn})) = ${mpn}`);
+		if (mfr) {
+			const pair = rows
+				.filter((r) => key(r.manufacturer) === mfr)
+				.sort((a, b) => a.sku.localeCompare(b.sku));
+			if (pair.length) return matchIngestRow(db, pair[0], node, source, hasChildren);
+		} else if (rows.length > 1) {
+			throw new HttpError(
+				409,
+				`MPN ${node.mpn} matches ${rows.length} items; supply a manufacturer or a sku`,
+				{ skus: rows.map((r) => r.sku).sort() }
+			);
+		} else if (rows.length === 1) {
+			return matchIngestRow(db, rows[0], node, source, hasChildren);
+		}
+	}
+
+	if (node.sku != null) {
+		const supplied = node.sku.trim();
+		if (!KEBAB.test(supplied)) throw new HttpError(422, `sku ${node.sku} is not kebab-case`);
+		const row = await db.query.items.findFirst({ where: eq(items.sku, supplied) });
+		if (row) {
+			// A supplied sku is a reference. An incoming node with no
+			// (manufacturer, mpn) pair claims no identity, so it never
+			// collides — otherwise referencing `t4000-som` by sku would 409.
+			const rowPaired = key(row.manufacturer) != null || key(row.mpn) != null;
+			const incomingPaired = mfr != null || mpn != null;
+			const same = key(row.manufacturer) === mfr && key(row.mpn) === mpn;
+			if (rowPaired && incomingPaired && !same) {
+				throw new HttpError(
+					409,
+					`sku ${supplied} is ${row.manufacturer ?? '—'} / ${row.mpn ?? '—'}, not ${node.manufacturer ?? '—'} / ${node.mpn ?? '—'}`
+				);
+			}
+			return matchIngestRow(db, row, node, source, hasChildren);
+		}
+		return createIngestRow(db, supplied, node, source, hasChildren);
+	}
+
+	const minted =
+		mfr && mpn
+			? `${slugify(node.manufacturer as string)}-${slugify(node.mpn as string)}`
+			: slugify(node.name ?? '');
+	if (!minted || !KEBAB.test(minted)) {
+		throw new HttpError(422, `cannot mint a kebab sku from ${JSON.stringify(node.name ?? '')}`);
+	}
+	const row = await db.query.items.findFirst({ where: eq(items.sku, minted) });
+	if (row) {
+		// A minted slug is a guess, not a reference. Landing on a row that
+		// carries an MPN is a collision, not a match.
+		const rowPaired = key(row.manufacturer) != null || key(row.mpn) != null;
+		const same = key(row.manufacturer) === mfr && key(row.mpn) === mpn;
+		if (rowPaired && !same) {
+			throw new HttpError(
+				409,
+				`minted sku ${minted} already belongs to ${row.manufacturer ?? '—'} / ${row.mpn ?? '—'}`
+			);
+		}
+		return matchIngestRow(db, row, node, source, hasChildren);
+	}
+	return createIngestRow(db, minted, node, source, hasChildren);
+}
+
+/** Idempotent on `(parent, child, role)`: a re-POST sets qty, it never adds a line. */
+async function upsertIngestLine(
+	db: Db,
+	parentSku: string,
+	childSku: string,
+	node: IngestNode,
+	index: number
+) {
+	const role = node.role ?? '';
+	const qty = node.qty ?? 1;
+	const existing = await db.query.bomLines.findFirst({
+		where: and(
+			eq(bomLines.parentSku, parentSku),
+			eq(bomLines.childSku, childSku),
+			eq(bomLines.role, role)
+		)
+	});
+	if (existing) {
+		if (qty < 1) throw new HttpError(422, 'qty must be >= 1');
+		const [row] = await db
+			.update(bomLines)
+			.set({
+				qty,
+				unit: node.unit ?? existing.unit,
+				notes: node.lineNotes ?? existing.notes,
+				optional: node.optional ?? existing.optional,
+				sortOrder: node.sortOrder ?? existing.sortOrder
+			})
+			.where(eq(bomLines.id, existing.id))
+			.returning();
+		return row.id;
+	}
+	// Same door as POST /items/{sku}/bom: floor guard, cycle guard, unique
+	// index — on the transaction handle, so a cycle rolls the tree back.
+	const row = await addBomLine(db, parentSku, {
+		childSku,
+		qty,
+		unit: node.unit,
+		role,
+		notes: node.lineNotes ?? null,
+		optional: node.optional,
+		sortOrder: node.sortOrder ?? index * 10
+	});
+	return row.id;
+}
+
+async function walkIngest(db: Db, node: IngestNode, source: string | null): Promise<IngestResult> {
+	const children = node.children ?? [];
+	const self = await resolveIngestNode(db, node, source, children.length > 0);
+	const lines: string[] = [];
+	const kids: IngestResult[] = [];
+	for (const [i, child] of children.entries()) {
+		const kid = await walkIngest(db, child, source);
+		kids.push(kid);
+		lines.push(await upsertIngestLine(db, self.sku, kid.sku, child, i));
+	}
+	return { ...self, lines, children: kids };
+}
+
+/**
+ * One transaction for the whole tree. Any throw rolls every row back, so a
+ * 409 on the last child leaves no half-built root behind.
+ */
+export async function ingestTree(
+	db: DabomDb,
+	body: { source?: string | null; root: IngestNode }
+): Promise<IngestResult> {
+	return db.transaction((tx) => walkIngest(tx, body.root, body.source ?? null));
 }

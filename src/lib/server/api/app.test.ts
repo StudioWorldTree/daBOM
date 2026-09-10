@@ -362,6 +362,239 @@ describe('daBOM API', () => {
 		expect((await ok.json()).notes).toBe('backorder');
 	});
 
+	// --- add-ingest-api ---------------------------------------------------
+
+	const ingest = (body: unknown, contentType = 'application/json') =>
+		app.request('/ingest', {
+			method: 'POST',
+			headers: { 'content-type': contentType },
+			body: typeof body === 'string' ? body : JSON.stringify(body)
+		});
+
+	const thorKit = {
+		source: '../AICamera/docs/SHOPPING.md',
+		root: {
+			sku: 'kit-ingest-thor',
+			name: 'Thor shopping kit',
+			kind: 'kit',
+			category: 'kit',
+			children: [
+				{
+					name: 'NVIDIA Jetson T4000 SOM',
+					manufacturer: 'NVIDIA',
+					mpn: '900-13834-0000-000',
+					qty: 1,
+					role: 'som'
+				},
+				{ sku: 'rogue-t5', qty: 1, role: 'carrier' }
+			]
+		}
+	};
+
+	it('writes a JSON tree as items and BOM lines without per-line POSTs', async () => {
+		const res = await ingest(thorKit);
+		expect(res.status).toBe(201);
+		const { root } = await res.json();
+		expect(root.sku).toBe('kit-ingest-thor');
+		expect(root.action).toBe('created');
+		// A new node that lists children is promoted before its lines land.
+		expect(root.floor).toBe('assemble');
+		expect(root.lines).toHaveLength(2);
+		for (const id of root.lines) expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+		// Identity, not the name, decides: the seeded SOM is reused.
+		expect(root.children.map((n: { sku: string }) => n.sku)).toEqual(['t4000-som', 'rogue-t5']);
+		expect(root.children.every((n: { action: string }) => n.action === 'matched')).toBe(true);
+
+		const bom = await (await app.request('/items/kit-ingest-thor/bom')).json();
+		expect(bom.lineCount).toBe(2);
+		expect(bom.lines.map((l: { childSku: string }) => l.childSku).sort()).toEqual([
+			'rogue-t5',
+			't4000-som'
+		]);
+
+		// The seed row is not relitigated by an ingest that names it.
+		const som = await (await app.request('/items/t4000-som')).json();
+		expect(som.name).toBe('NVIDIA Jetson T4000 SOM');
+		expect(som.status).toBe('preferred');
+
+		const spec = await (await app.request('/openapi.json')).json();
+		expect(spec.paths['/ingest'].post).toBeTruthy();
+		const root2 = createRoot(app);
+		const wellKnown = await (await root2.request('/.well-known/openapi.json')).json();
+		expect(wellKnown.paths['/ingest'].post.tags).toContain('Ingest');
+	});
+
+	it('sets qty on a repeat POST instead of adding lines or quotes', async () => {
+		const before = await (await app.request('/quotes')).json();
+		const again = await ingest({
+			...thorKit,
+			root: {
+				...thorKit.root,
+				children: thorKit.root.children.map((c) => ({ ...c, qty: 3 }))
+			}
+		});
+		expect(again.status).toBe(201);
+		const { root } = await again.json();
+		expect(root.action).toBe('matched');
+
+		const bom = await (await app.request('/items/kit-ingest-thor/bom')).json();
+		expect(bom.lineCount).toBe(2);
+		expect(bom.lines.every((l: { qty: number }) => l.qty === 3)).toBe(true);
+
+		const after = await (await app.request('/quotes')).json();
+		expect(after.quotes).toHaveLength(before.quotes.length);
+	});
+
+	it('matches on MPN alone and 409s when two rows share one MPN', async () => {
+		const alone = await ingest({
+			root: {
+				sku: 'kit-ingest-mpn',
+				name: 'MPN-only kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [{ mpn: '900-13834-0000-000', name: 'Some Thor module', qty: 1, role: 'som' }]
+			}
+		});
+		expect(alone.status).toBe(201);
+		expect((await alone.json()).root.children[0].sku).toBe('t4000-som');
+
+		for (const sku of ['dup-mpn-a', 'dup-mpn-b']) {
+			const made = await post('/items', {
+				sku,
+				name: `Dup ${sku}`,
+				kind: 'part',
+				category: 'compute',
+				manufacturer: sku === 'dup-mpn-a' ? 'Acme' : 'Globex',
+				mpn: 'DUP-MPN-1'
+			});
+			expect(made.status).toBe(201);
+		}
+		const ambiguous = await ingest({
+			root: {
+				sku: 'kit-ingest-dup',
+				name: 'Ambiguous kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [{ mpn: 'DUP-MPN-1', name: 'Ambiguous part', qty: 1 }]
+			}
+		});
+		expect(ambiguous.status).toBe(409);
+		expect((await ambiguous.json()).error).toMatch(/DUP-MPN-1/);
+		expect((await app.request('/items/kit-ingest-dup')).status).toBe(404);
+	});
+
+	it('409s a name-minted slug that lands on an identified row, writing nothing', async () => {
+		const res = await ingest({
+			root: {
+				sku: 'kit-ingest-collide',
+				name: 'Collide kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [
+					{ mpn: '900-13834-0000-000', qty: 1, role: 'som' },
+					{ name: 'T4000 SOM', qty: 1, role: 'spare' }
+				]
+			}
+		});
+		expect(res.status).toBe(409);
+		expect((await res.json()).error).toMatch(/t4000-som/);
+		expect((await app.request('/items/kit-ingest-collide')).status).toBe(404);
+	});
+
+	it('refuses to explode a buy SOM and rolls the whole tree back', async () => {
+		const res = await ingest({
+			root: {
+				sku: 'kit-ingest-explode',
+				name: 'Explode kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [
+					{
+						sku: 't4000-som',
+						qty: 1,
+						role: 'som',
+						children: [{ name: 'Thor die', qty: 1, role: 'die' }]
+					}
+				]
+			}
+		});
+		expect(res.status).toBe(409);
+		expect((await res.json()).error).toMatch(/floor buy/);
+		expect((await app.request('/items/kit-ingest-explode')).status).toBe(404);
+		expect((await app.request('/items/thor-die')).status).toBe(404);
+		const som = await (await app.request('/items/t4000-som/bom')).json();
+		expect(som.lineCount).toBe(0);
+		expect((await (await app.request('/items/t4000-som')).json()).floor).toBe('buy');
+	});
+
+	it('409s a cycle closed by sku reference and writes nothing', async () => {
+		const res = await ingest({
+			root: {
+				sku: 'asm-thor-sandwich',
+				children: [{ sku: 'kit-prod', qty: 1, role: 'oops' }]
+			}
+		});
+		expect(res.status).toBe(409);
+		expect((await res.json()).error).toMatch(/cycle/i);
+		const bom = await (await app.request('/items/asm-thor-sandwich/bom')).json();
+		expect(bom.lines.some((l: { role: string }) => l.role === 'oops')).toBe(false);
+	});
+
+	it('mints a name-only node as a placeholder and reuses it on the next POST', async () => {
+		const body = {
+			source: 'brief',
+			root: {
+				sku: 'kit-ingest-mint',
+				name: 'Mint kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [{ name: 'Möbius Bräcket 3000', qty: 2, role: 'bracket' }]
+			}
+		};
+		const first = await ingest(body);
+		expect(first.status).toBe(201);
+		const minted = (await first.json()).root.children[0];
+		expect(minted.sku).toBe('mobius-bracket-3000');
+		expect(minted.action).toBe('created');
+
+		const made = await (await app.request('/items/mobius-bracket-3000')).json();
+		expect(made.status).toBe('placeholder');
+		expect(made.floor).toBe('buy');
+		expect(made.source).toBe('brief');
+
+		// A name-minted slug that hits a row with no pair is the same identity.
+		const second = await ingest(body);
+		expect(second.status).toBe(201);
+		expect((await second.json()).root.children[0].action).toBe('matched');
+	});
+
+	it('rejects a non-kebab sku and an unmintable name', async () => {
+		const shouty = await ingest({ root: { sku: 'KIT-SHOUTY', name: 'Shouty' } });
+		expect(shouty.status).toBe(422);
+
+		const nameless = await ingest({
+			root: {
+				sku: 'kit-ingest-nameless',
+				name: 'Nameless kit',
+				kind: 'kit',
+				category: 'kit',
+				children: [{ name: '???', qty: 1 }]
+			}
+		});
+		expect(nameless.status).toBe(422);
+		expect((await app.request('/items/kit-ingest-nameless')).status).toBe(404);
+	});
+
+	it('415s a PDF or markdown body and never parses it', async () => {
+		const pdf = await ingest('%PDF-1.7 binary', 'application/pdf');
+		expect(pdf.status).toBe(415);
+		expect((await pdf.json()).error).toMatch(/application\/pdf/);
+
+		const md = await ingest('# Shopping list', 'text/markdown');
+		expect(md.status).toBe(415);
+	});
+
 	it('refuses to prefer a superseded row', async () => {
 		const item = await (await app.request('/items/t4000-som')).json();
 		const stale = item.quotes.find((q: { method: string }) => q.method === 'seed');

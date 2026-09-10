@@ -97,3 +97,34 @@ export type WhereUsed = {
 		optional: boolean;
 	}[];
 };
+
+/** One node of a `POST /api/v1/ingest` tree. Identity is resolved, not declared. */
+export type IngestNode = {
+	sku?: string;
+	name?: string;
+	kind?: 'part' | 'assembly' | 'kit';
+	category?: string;
+	status?: string;
+	floor?: 'buy' | 'assemble' | 'foundry';
+	description?: string;
+	manufacturer?: string | null;
+	mpn?: string | null;
+	notes?: string | null;
+	source?: string | null;
+	qty?: number;
+	unit?: string;
+	role?: string;
+	lineNotes?: string | null;
+	optional?: boolean;
+	sortOrder?: number;
+	children?: IngestNode[];
+};
+
+export type IngestResult = {
+	sku: string;
+	action: 'created' | 'matched';
+	floor: 'buy' | 'assemble' | 'foundry';
+	/** Ids of the BOM lines from this node to its children. */
+	lines: string[];
+	children: IngestResult[];
+};

@@ -7,6 +7,7 @@ import {
 	explodeBom,
 	getItemOrThrow,
 	HttpError,
+	ingestTree,
 	isLeaf,
 	listBom,
 	rollup,
@@ -25,6 +26,8 @@ import {
 	ErrorSchema,
 	ExplodeQuery,
 	ExplodedBomSchema,
+	IngestRequestSchema,
+	IngestResultSchema,
 	ItemCreateSchema,
 	ItemListQuery,
 	ItemListSchema,
@@ -51,7 +54,7 @@ const json = <T>(schema: T, description: string) => ({
 	description
 });
 
-function err(status: 400 | 404 | 409 | 422, description: string) {
+function err(status: 400 | 404 | 409 | 415 | 422, description: string) {
 	return { [status]: json(ErrorSchema, description) } as const;
 }
 
@@ -573,6 +576,52 @@ export function createApi(db: DabomDb) {
 		}
 	);
 
+	// 415 has to answer before the JSON validator does, so a PDF body gets
+	// "wrong media type" rather than "not an object". Parsers for markdown
+	// and PDF live in `add-ingest-skills`, never on this route.
+	app.use('/ingest', async (c, next) => {
+		const type = (c.req.header('content-type') ?? '').toLowerCase();
+		if (!type.includes('application/json')) {
+			return c.json(
+				{
+					error: `Unsupported media type ${type || '(none)'}; ingest accepts application/json only`,
+					details: null
+				},
+				415
+			);
+		}
+		await next();
+	});
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/ingest',
+			tags: ['Ingest'],
+			summary: 'Write a JSON tree of items and BOM lines in one transaction',
+			description: [
+				'Write-through: no draft store. Identity per node is resolved in order —',
+				'(manufacturer, MPN) pair, MPN alone when the manufacturer is null, a supplied',
+				'kebab `sku`, then a minted slug. A matched row is never overwritten except to',
+				'fill a null `manufacturer`, `mpn` or `source`. A node that lists children is',
+				'promoted to `assemble` when it is new; an existing `buy` or `foundry` parent is',
+				'409. A re-POST sets qty on `(parent, child, role)` instead of adding a line.',
+				'Any non-2xx writes nothing.'
+			].join(' '),
+			request: { body: json(IngestRequestSchema, 'Item tree') },
+			responses: {
+				201: json(IngestResultSchema, 'Written'),
+				...err(409, 'Identity collision, floor, or cycle'),
+				...err(415, 'Not application/json'),
+				...err(422, 'Invalid node or unmintable sku')
+			}
+		}),
+		async (c) => {
+			const body = c.req.valid('json');
+			return c.json({ root: await ingestTree(db, body) }, 201);
+		}
+	);
+
 	app.doc31('/openapi.json', {
 		openapi: '3.1.0',
 		info: {
@@ -594,6 +643,10 @@ export function createApi(db: DabomDb) {
 				'`priceCents`, `url`, `method` and `checkedAt` are immutable, and a correction is a new row',
 				'with method `manual`.',
 				'',
+				'**Ingest.** POST /ingest writes a JSON tree of items and BOM lines through the same',
+				'tables in one transaction. There is no draft store and any non-2xx writes nothing.',
+				'JSON is the only body: markdown and PDF are 415 and belong to the ingest skills.',
+				'',
 				'**Roll-up.** Within a vendor, the best method wins, then the newest: `api` > `headed` >',
 				'`crawl` > `seed` > `manual`, so a Sep 1 API price beats a Sep 8 crawl of the same page.',
 				'Across vendors, the preferred vendor wins if its chosen row is priced, otherwise the same',
@@ -611,7 +664,8 @@ export function createApi(db: DabomDb) {
 			{ name: 'Items' },
 			{ name: 'BOM' },
 			{ name: 'Vendors' },
-			{ name: 'Quotes' }
+			{ name: 'Quotes' },
+			{ name: 'Ingest' }
 		]
 	});
 

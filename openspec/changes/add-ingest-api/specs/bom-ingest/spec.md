@@ -5,7 +5,12 @@
 The system SHALL accept `POST /api/v1/ingest` and upsert items and BOM
 lines through the existing tables in one transaction. The system SHALL
 NOT keep a draft store. Any non-2xx response SHALL write nothing. The
-well-known OpenAPI document SHALL list the operation.
+well-known OpenAPI document SHALL list the operation. The 201 body SHALL
+report, for every node in the tree, its `sku`, an `action` of `created`
+or `matched`, its `floor`, and the ids of the BOM lines from that node to
+its children. BOM lines SHALL be inserted through the same floor and
+cycle guards as `POST /items/{sku}/bom`, using the transaction handle, so
+a cycle closed by a `sku` reference is 409.
 
 #### Scenario: JSON tree becomes a kit
 
@@ -56,6 +61,14 @@ row with no manufacturer/MPN SHALL reuse that row. Matched rows SHALL
 NOT be overwritten except to fill null `manufacturer`, `mpn`, or
 `source`.
 
+#### Scenario: MPN alone resolves a seeded part
+
+- GIVEN a node carrying MPN `900-13834-0000-000`, no manufacturer, and no
+  sku
+- WHEN POST `/api/v1/ingest`
+- THEN the node resolves to `t4000-som` with `action` `matched`, and a
+  node carrying an MPN that two items share is 409
+
 #### Scenario: Seed identity wins
 
 - GIVEN seeded item `t4000-som` with manufacturer NVIDIA and MPN
@@ -75,9 +88,9 @@ NOT be overwritten except to fill null `manufacturer`, `mpn`, or
 
 The system SHALL default new ingest items to `buy`. The system SHALL set
 a node that lists children to `assemble` before inserting its BOM lines
-when that node is new or currently `buy`. The system SHALL reject ingest
-that would hang children on an existing `buy` or `foundry` item, or
-retag a `foundry` parent, with 409.
+when that node is new. Promotion is for new nodes only: the system SHALL
+reject ingest that would hang children on an existing `buy` or `foundry`
+item, or retag a `foundry` parent, with 409.
 
 #### Scenario: Cannot explode a buy SOM via ingest
 

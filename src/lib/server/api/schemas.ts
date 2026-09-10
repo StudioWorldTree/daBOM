@@ -325,3 +325,62 @@ export const QuoteParam = z.object({ id: QuoteId });
 export const ExplodeQuery = z.object({
 	explode: z.enum(['true', 'false']).optional()
 });
+
+/**
+ * One ingest node. Every field is optional because identity is resolved
+ * (pair, MPN, supplied sku, mint) rather than declared: a node may be a bare
+ * `{ mpn }` reference to a seeded row or a full new part. `qty`, `unit`,
+ * `role`, `lineNotes`, `optional` and `sortOrder` describe this node's line
+ * under its parent and are ignored on the root.
+ */
+export const IngestNodeSchema = z
+	.object({
+		sku: z.string().optional().openapi({ example: 't4000-som' }),
+		name: z.string().optional().openapi({ example: 'NVIDIA Jetson T4000 SOM' }),
+		kind: ItemKind.optional(),
+		category: ItemCategory.optional(),
+		status: ItemStatus.optional(),
+		floor: ItemFloor.optional(),
+		description: z.string().optional(),
+		manufacturer: z.string().nullable().optional(),
+		mpn: z.string().nullable().optional(),
+		notes: z.string().nullable().optional(),
+		source: z.string().nullable().optional(),
+		qty: z.number().int().min(1).optional(),
+		unit: z.string().optional(),
+		role: z.string().optional(),
+		lineNotes: z.string().nullable().optional(),
+		optional: z.boolean().optional(),
+		sortOrder: z.number().int().optional(),
+		get children() {
+			return z.array(IngestNodeSchema).optional();
+		}
+	})
+	.openapi('IngestNode');
+
+export const IngestRequestSchema = z
+	.object({
+		source: z.string().nullable().optional().openapi({ example: '../AICamera/docs/SHOPPING.md' }),
+		root: IngestNodeSchema
+	})
+	.openapi('IngestRequest');
+
+export const IngestNodeResultSchema = z
+	.object({
+		sku: z.string(),
+		action: z.enum(['created', 'matched']),
+		floor: ItemFloor,
+		lines: z.array(z.string().uuid()).openapi({
+			description: 'Ids of the BOM lines from this node to its children.'
+		}),
+		get children() {
+			return z.array(IngestNodeResultSchema);
+		}
+	})
+	.openapi('IngestNodeResult');
+
+export const IngestResultSchema = z
+	.object({
+		root: IngestNodeResultSchema
+	})
+	.openapi('IngestResult');
