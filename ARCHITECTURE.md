@@ -9,7 +9,8 @@ running system belongs in `openspec/specs/`.
 
 ### ADR-001: Manufacturing floor on items ✅
 
-**Status:** Accepted 2026-09-09 (`add-compose-schema`).
+**Status:** Accepted 2026-09-09 (`add-compose-schema`). Crib names floor
+in `catalog.ts` as of 2026-09-09 (`add-floor-seed`).
 **Blast:** `items` schema, explode, partCount, roll-up.
 
 **Decision.** Every item has `floor`: `buy` | `assemble` | `foundry`. The
@@ -33,8 +34,8 @@ is in the schema. T4000 SOM is a leaf until a foundry is contracted.
 - Global floor per shop. Same SKU bought in one product and built in
   another makes the column lie; per-line override is a later escape hatch.
 
-**Not decided here.** Ingest (`add-ingest-api`). Catalog retag beyond parent
-backfill (`add-floor-seed`).
+**Not decided here.** Ingest (`add-ingest-api`). Foundry-level breakdowns
+when a process is contracted.
 
 **Living spec:** [`openspec/specs/bom-compose/spec.md`](openspec/specs/bom-compose/spec.md)
 
@@ -139,9 +140,8 @@ single-line POST uses.
 - Skills stay HTTP clients (`add-ingest-skills`).
 - Markdown and PDF parsers are not this route.
 - Seed PK migrations and numeric SKU suffixes (`-2`) stay out.
-- Catalog floor retag is `add-floor-seed`.
+- Catalog floor is named in `catalog.ts` (`add-floor-seed`).
 
-**Not decided here.** Markdown/PDF parsers (`add-ingest-skills`). Catalog
-floor retag (`add-floor-seed`).
+**Not decided here.** Markdown/PDF parsers (`add-ingest-skills`).
 
 **Living spec:** [`openspec/specs/bom-ingest/spec.md`](openspec/specs/bom-ingest/spec.md)

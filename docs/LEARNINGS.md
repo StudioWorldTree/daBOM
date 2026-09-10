@@ -8,3 +8,6 @@
 - 2026-09-09 promoting an existing `buy` parent on ingest would both explode a SOM and 409 it; promotion is new nodes only (`add-ingest-api`).
 - 2026-09-09 a supplied sku is a reference: an incoming node with no (manufacturer, mpn) pair never collides, or `sku: t4000-som` with no MPN 409s the seed (`add-ingest-api`).
 - 2026-09-09 name-minted `status` default must live on the ingest node schema; `ItemCreateSchema`'s `candidate` would mark brief lines as authored (`add-ingest-api`).
+- 2026-09-09 a seed backfill that sets `assemble` for every `bom_lines` parent would mask an untagged catalog row; the catalog test must import `seedItems`/`seedBoms` with no DB (`add-floor-seed`).
+- 2026-09-09 `NewItem` from `$inferInsert` makes `floor` optional because of the column default; `SeedItem` must require `'buy' | 'assemble'` or an untagged row typechecks (`add-floor-seed`).
+- 2026-09-09 in-house resin shells stay `buy` until resin plus labor are children; empty `assemble` rolls up to zero and drops the quote (`add-floor-seed`).
