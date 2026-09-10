@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-compose-schema-advise",
+  "node_id": "add-compose-schema-advise",
+  "capability": "bom-compose",
+  "change_id": "add-compose-schema",
+  "goal": "Blind-pass architecture advise of add-compose-schema. Write openspec/changes/add-compose-schema/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "non_goals": [
+    "Implement floor or ingest",
+    "Fold",
+    "Advise add-price-access in this file",
+    "Open design.md or tasks.md before the 10-line independent take"
+  ],
+  "anchors": [
+    {
+      "symbol": "src/lib/server/db/schema.ts:items",
+      "invariant": "items.kind is text part|assembly|kit; no floor column; sku is the PK"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:explodeBom",
+      "invariant": "explode recurses on any child whose kind is not part; no manufacturing floor"
+    },
+    {
+      "symbol": "openspec/specs/bom-compose/spec.md",
+      "invariant": "Living spec is empty until fold; in-flight SHALL is the change delta"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; independent take precedes design/tasks; T4000 stays a buy-leaf or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or the reader designed a foundry explode."
+  },
+  "out_of_scope": [
+    { "item": "POST /ingest", "tracked_as": "add-ingest-api" },
+    { "item": "Quote fetch ladder", "tracked_as": "add-price-access" },
+    { "item": "Seed retag", "tracked_as": "add-floor-seed" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-compose-schema/reviews/",
+      "openspec/changes/add-compose-schema/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: part/assembly/kit cannot say stop here, we buy this. Agents ingesting hardware will explode a SOM into a die unless the floor is in the schema.",
+    "Cited: src/lib/server/db/schema.ts:32-59 items table has kind, no floor.",
+    "Cited: src/lib/server/bom.ts:127-140 explodeBom walks any child whose kind is not part.",
+    "Living spec stub: openspec/specs/bom-compose/spec.md. Delta: openspec/changes/add-compose-schema/specs/bom-compose/spec.md — read after the 10-line take, with design.md/tasks.md."
+  ],
+  "load_class": "ambiguous",
+  "rigor": "architecture",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
