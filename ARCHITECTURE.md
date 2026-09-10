@@ -53,3 +53,45 @@ auto-mint on POST `/items`; ingest will mint from manufacturer+MPN or name.
 PKs on the seed is a migration, not a retag.
 
 **Not decided here.** Collision rule and ingest mint (`add-ingest-api`).
+
+---
+
+### ADR-003: Quotes are append-only; access ladder ranks methods ✅
+
+**Status:** Accepted 2026-09-09 (`add-price-access`).
+**Blast:** `quotes` schema, `pickQuote`, roll-up DTO, PATCH `/quotes/{id}`.
+
+**Decision.** A quote is an observation: method (`api` | `headed` |
+`crawl` | `seed` | `manual`), optional URL, integer cents, `checkedAt`.
+POST inserts a new row. History stays. Price, URL, method, and
+`checkedAt` are immutable after insert. PATCH may change `isPreferred`,
+`notes`, and `inStock` only, and only the latest row for an
+(item, vendor) may become preferred (else 422). A new row for the same
+pair inherits `isPreferred` and clears it on the previous row.
+
+Access ladder: distributor API (Digi-Key, Mouser, Arrow) before crawl
+(Firecrawl) before headed Playwright. Failed fetches insert nothing.
+B&H and CTI/WDL start at crawl or headed.
+
+Roll-up: within a vendor, method rank `api > headed > crawl > seed >
+manual`, then newest. Across vendors, the preferred vendor if its chosen
+row is priced, else the same rank then newest. Priceless rows never win.
+Roll-up DTO `asOf` is the minimum `checkedAt` among chosen priced quotes.
+
+**Why.** Seeded street prices rot. Scraping first burns ToS and misses
+feeds that already exist. A mutable price plus a history table doubles
+the schema for no gain. Method rank keeps a vendor’s API speaking over a
+later crawl of the same page; `asOf` is what stops that being a silent
+lie.
+
+**Consequences.**
+
+- Corrections are a new row with method `manual`, not a PATCH of cents.
+- Seed backfill is `method=seed`; human-typed CTI quotes are `manual`.
+- Adapter HTTP clients are `add-price-skills`, not this change.
+- `DELETE /items/{sku}` still deletes quotes: the item is gone.
+
+**Not decided here.** Vendor API adapters (`add-price-skills`). Ingest
+(`add-ingest-api`).
+
+**Living spec:** [`openspec/specs/bom-quotes/spec.md`](openspec/specs/bom-quotes/spec.md)
