@@ -10,8 +10,9 @@ skill they will SQL the PGLite file.
 
 ## What
 
-- Skill `ingest-hardware` in this repo: files and prose → JSON tree → POST `/api/v1/ingest`
-- pdf2md for PDFs (user rule). Markdown parser lives here, not on the route
+- Skill `ingest-hardware` in this repo: files and prose → candidate list → selected `IngestRequest` file → POST `/api/v1/ingest`
+- Tree file is the review artifact; POST is the commit
+- pdf2md for PDFs. Helper may live under `skills/`, not `src/`
 - HTTP only. No drizzle, no `data/dabom/`
 - Capability: ADDED `ingest-skills`
 

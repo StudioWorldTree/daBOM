@@ -1,7 +1,19 @@
 # Tasks
 
-- [ ] `skills/ingest-hardware/SKILL.md` with trigger, HTTP-only rule, tree shape
-- [ ] PDF path: `pdf2md` then the same markdown → tree path
+- [ ] `skills/ingest-hardware/SKILL.md` with trigger, HTTP-only rule, link to
+      `/.well-known/openapi.json` `IngestNode`, one example tree
+- [ ] PDF path: `pdf2md` then the same candidate → selection path
 - [ ] Skill POSTs `/api/v1/ingest` (base from env or localhost:5173); never drizzle
-- [ ] Markdown: `###` + `PN` row becomes an item; other headings ignored; root from `#`/`##` or argument
-- [ ] Tests: given a Thor shopping excerpt, the skill’s tree POSTs and reuses `t4000-som`; a mocked drizzle import is not in the skill
+- [ ] Parser emits candidates (heading, manufacturer from heading, mpn, notes).
+      Tree is composed from a selection: cart section, MPN list, or hand edit
+      of the tree file. Not every `###`+`PN` under one root.
+- [ ] Write `IngestRequest` JSON to a file; agent/human reads it before POST
+- [ ] Tests: whole `SHOPPING.md` production kit contains T4000 SOM + Rogue-T5
+      and does not contain the AGX Developer Kit; grep skill dir for
+      `drizzle` / `data/dabom` / `pglite` / `$lib/server` is zero hits
+- [ ] One line in AGENTS.md pointing at `skills/`
+      Reader-added (advise, fable-5.1-arch-review):
+
+- [x] Tree file before POST (review artifact; POST is the commit)
+- [x] Candidates + selection, not every PN heading as a BOM line
+- [x] Fixture is whole SHOPPING.md; assert the rejected dev kit is absent

@@ -11,3 +11,6 @@
 ## Feeds change
 
 A skill that builds the JSON tree and POSTs it. pdf2md for datasheets.
+
+Send-back 2026-09-09: do not treat every `###`+`PN` as a BOM line.
+Candidates plus a selection; tree file before POST.
