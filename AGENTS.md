@@ -9,17 +9,21 @@ Issue prefix: `dabom`. `bd prime` / `bd ready` if tracking here.
 
 ## What the pieces are for
 
-| Piece | Job |
-|---|---|
-| **Hono REST** (`src/lib/server/api/`) | The product. Features land here first. Zod schemas are the contract. |
-| **OpenAPI document** | Always published. Clients, CLI, and the explorer read this — not ad-hoc fetch helpers. |
-| **PGLite + Drizzle** (`data/dabom`, `src/lib/server/db/`) | Local Postgres file. SKUs, quotes (integer cents), BOM lines. Not the AICamera markdown. |
-| **SvelteKit UI** (`src/routes/`) | Admin surface over the API. May lag the API. Never a second source of truth. |
-| **OpenAPI explorer** (owned, SvelteKit) | In-line try-every-operation harness. Not vendor Swagger/Scalar chrome. |
-| **IdentiKey** | Only login. CLI like `mj login`; browser like Taskmaster. No passwords on this host. |
-| **AICamera** | Hardware notebook. Product facts (Thor, HEVC, /i) live there. Seed catalog is copied from those docs, not live-linked. |
+| Piece                                                     | Job                                                                                                                    |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Hono REST** (`src/lib/server/api/`)                     | The product. Features land here first. Zod schemas are the contract.                                                   |
+| **OpenAPI document**                                      | Always published. Clients, CLI, and the explorer read this — not ad-hoc fetch helpers.                                 |
+| **PGLite + Drizzle** (`data/dabom`, `src/lib/server/db/`) | Local Postgres file. SKUs, quotes (integer cents), BOM lines. Not the AICamera markdown.                               |
+| **SvelteKit UI** (`src/routes/`)                          | Admin surface over the API. May lag the API. Never a second source of truth.                                           |
+| **OpenAPI explorer** (owned, SvelteKit)                   | In-line try-every-operation harness. Not vendor Swagger/Scalar chrome.                                                 |
+| **IdentiKey**                                             | Only login. CLI like `mj login`; browser like Taskmaster. No passwords on this host.                                   |
+| **AICamera**                                              | Hardware notebook. Product facts (Thor, HEVC, /i) live there. Seed catalog is copied from those docs, not live-linked. |
 
 Product facts stay in AICamera / web3d-space. This repo stores the crib.
+
+Repo skills live in `skills/` — agent surfaces over the API, never a second
+way into the database. `skills/ingest-hardware/` turns a hardware brief or a
+datasheet into a JSON tree file, then POSTs `/api/v1/ingest`.
 
 ## How to dev
 
@@ -59,11 +63,11 @@ Do not teach the UI a schema the spec does not have.
 
 Always publish the current OpenAPI 3.1 document at:
 
-| URL | |
-|---|---|
+| URL                             |                                                        |
+| ------------------------------- | ------------------------------------------------------ |
 | **`/.well-known/openapi.json`** | Canonical discovery. Same bytes as the versioned spec. |
-| `/api/v1/openapi.json` | Versioned path the routes live under. |
-| `/.well-known/api-catalog` | RFC 9727 linkset pointing at those two. |
+| `/api/v1/openapi.json`          | Versioned path the routes live under.                  |
+| `/.well-known/api-catalog`      | RFC 9727 linkset pointing at those two.                |
 
 If you add a version (`/api/v2`), keep well-known on the **current** spec
 and list both in the catalog. Do not 404 the well-known URL. Do not serve

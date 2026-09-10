@@ -32,6 +32,16 @@ export default defineConfig({
 					include: ['src/**/*.{test,spec}.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
 				}
+			},
+			{
+				// Repo skills are agent surfaces, not app code. Their tests live
+				// beside them under `skills/`, never under `src/`.
+				extends: './vite.config.ts',
+				test: {
+					name: 'skills',
+					environment: 'node',
+					include: ['skills/**/*.{test,spec}.{js,ts}']
+				}
 			}
 		]
 	}
