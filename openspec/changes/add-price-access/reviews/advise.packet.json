@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-price-access-advise",
+  "node_id": "add-price-access-advise",
+  "capability": "bom-quotes",
+  "change_id": "add-price-access",
+  "goal": "Blind-pass architecture advise of add-price-access. Write openspec/changes/add-price-access/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "non_goals": [
+    "Implement vendor adapters",
+    "Fold",
+    "Open design.md or tasks.md before the 10-line independent take"
+  ],
+  "anchors": [
+    {
+      "symbol": "src/lib/server/db/schema.ts:quotes",
+      "invariant": "quotes have priceCents, url, checkedAt, isPreferred; no method column"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:pickQuote",
+      "invariant": "roll-up prefers isPreferred with a price, else first priced quote"
+    },
+    {
+      "symbol": "openspec/specs/bom-quotes/spec.md",
+      "invariant": "Living spec empty until fold"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; API-before-crawl is pinned or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or scrape-first is accepted as the ladder."
+  },
+  "out_of_scope": [
+    { "item": "Digi-Key/Mouser/Arrow clients", "tracked_as": "add-price-skills" },
+    { "item": "Item floor", "tracked_as": "add-compose-schema" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-price-access/reviews/",
+      "openspec/changes/add-price-access/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: Seeded street prices rot. Scraping first burns ToS and misses feeds that already exist. Quotes need a method, a URL, and an as-of so roll-up is honest.",
+    "Cited: src/lib/server/db/schema.ts:69-88 quotes table, no method.",
+    "Cited: src/lib/server/bom.ts:24-26 pickQuote uses isPreferred then first priced.",
+    "Living spec stub: openspec/specs/bom-quotes/spec.md. Delta: openspec/changes/add-price-access/specs/bom-quotes/spec.md — after the 10-line take."
+  ],
+  "load_class": "intention-critical",
+  "rigor": "architecture",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
