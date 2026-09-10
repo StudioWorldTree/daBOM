@@ -7,6 +7,7 @@ export const Sku = z
 	.openapi({ example: 't4000-som', param: { name: 'sku', in: 'path' } });
 
 export const ItemKind = z.enum(['part', 'assembly', 'kit']);
+export const ItemFloor = z.enum(['buy', 'assemble', 'foundry']);
 export const ItemCategory = z.enum([
 	'compute',
 	'carrier',
@@ -51,6 +52,7 @@ export const ItemSchema = z
 		sku: z.string(),
 		name: z.string(),
 		kind: ItemKind,
+		floor: ItemFloor,
 		category: ItemCategory,
 		status: ItemStatus,
 		description: z.string(),
@@ -75,6 +77,7 @@ export const ItemCreateSchema = z
 		sku: Sku,
 		name: z.string().min(1),
 		kind: ItemKind,
+		floor: ItemFloor.default('buy'),
 		category: ItemCategory,
 		status: ItemStatus.default('candidate'),
 		description: z.string().default(''),
@@ -91,13 +94,12 @@ export const ItemCreateSchema = z
 	})
 	.openapi('ItemCreate');
 
-export const ItemPatchSchema = ItemCreateSchema.partial()
-	.omit({ sku: true })
-	.openapi('ItemPatch');
+export const ItemPatchSchema = ItemCreateSchema.partial().omit({ sku: true }).openapi('ItemPatch');
 
 export const ItemListQuery = z.object({
 	q: z.string().optional().openapi({ example: 'thor' }),
 	kind: ItemKind.optional(),
+	floor: ItemFloor.optional(),
 	category: ItemCategory.optional(),
 	status: ItemStatus.optional()
 });
@@ -114,6 +116,7 @@ export const ChildRefSchema = z
 		sku: z.string(),
 		name: z.string(),
 		kind: z.string(),
+		floor: z.string(),
 		category: z.string(),
 		status: z.string(),
 		manufacturer: z.string().nullable(),
@@ -270,19 +273,28 @@ export const QuotePatchSchema = QuoteCreateSchema.partial()
 	.omit({ itemSku: true })
 	.openapi('QuotePatch');
 
-export const LineId = z.string().uuid().openapi({
-	example: '00000000-0000-0000-0000-000000000000',
-	param: { name: 'lineId', in: 'path' }
-});
+export const LineId = z
+	.string()
+	.uuid()
+	.openapi({
+		example: '00000000-0000-0000-0000-000000000000',
+		param: { name: 'lineId', in: 'path' }
+	});
 
-export const QuoteId = z.string().uuid().openapi({
-	param: { name: 'id', in: 'path' }
-});
+export const QuoteId = z
+	.string()
+	.uuid()
+	.openapi({
+		param: { name: 'id', in: 'path' }
+	});
 
-export const VendorId = z.string().min(1).openapi({
-	example: 'arrow',
-	param: { name: 'id', in: 'path' }
-});
+export const VendorId = z
+	.string()
+	.min(1)
+	.openapi({
+		example: 'arrow',
+		param: { name: 'id', in: 'path' }
+	});
 
 export const SkuParam = z.object({ sku: Sku });
 export const LineParam = z.object({ sku: Sku, lineId: LineId });

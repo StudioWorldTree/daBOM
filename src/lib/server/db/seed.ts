@@ -1,4 +1,4 @@
-import { count } from 'drizzle-orm';
+import { count, inArray, sql } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { seedBoms, seedItems, seedVendors } from './catalog';
 import * as schema from './schema';
@@ -63,6 +63,13 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 			}))
 		);
 	}
+
+	// Backfill, mirroring migration 0001: the catalog carries no floor, so
+	// anything that turned out to be a parent is built here, not bought.
+	await db
+		.update(items)
+		.set({ floor: 'assemble' })
+		.where(inArray(items.sku, sql`(select distinct parent_sku from bom_lines)`));
 
 	const [{ n: after }] = await db.select({ n: count() }).from(items);
 	return { seeded: true, itemCount: after };

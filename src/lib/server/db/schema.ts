@@ -29,6 +29,14 @@ export const itemCategories = [
 ] as const;
 export const itemStatuses = ['preferred', 'candidate', 'placeholder', 'do-not-buy'] as const;
 
+/**
+ * Manufacturing floor: does this shop open the box?
+ * Orthogonal to `kind` — a bought dev kit is `kind=kit, floor=buy`.
+ * Explode and roll-up recurse through `assemble` only; `buy` and `foundry`
+ * are leaves and behave identically at runtime.
+ */
+export const itemFloors = ['buy', 'assemble', 'foundry'] as const;
+
 export const items = pgTable(
 	'items',
 	{
@@ -37,6 +45,7 @@ export const items = pgTable(
 		kind: text('kind').notNull(),
 		category: text('category').notNull(),
 		status: text('status').notNull().default('candidate'),
+		floor: text('floor').notNull().default('buy'),
 		description: text('description').notNull().default(''),
 		manufacturer: text('manufacturer'),
 		mpn: text('mpn'),
@@ -54,7 +63,8 @@ export const items = pgTable(
 	(t) => [
 		index('items_kind_idx').on(t.kind),
 		index('items_category_idx').on(t.category),
-		index('items_status_idx').on(t.status)
+		index('items_status_idx').on(t.status),
+		index('items_floor_idx').on(t.floor)
 	]
 );
 

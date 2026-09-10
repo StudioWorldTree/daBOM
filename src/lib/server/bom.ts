@@ -21,8 +21,23 @@ export async function getItemOrThrow(db: DabomDb, sku: string) {
 	return row;
 }
 
-export function pickQuote<T extends { isPreferred: boolean; priceCents: number | null }>(rows: T[]) {
-	return rows.find((q) => q.isPreferred && q.priceCents != null) ?? rows.find((q) => q.priceCents != null) ?? null;
+/**
+ * The one leaf predicate. Explode, partCount and the roll-up leaf sum all
+ * branch here so they cannot drift. `buy` and `foundry` are both leaves;
+ * nothing in this file may branch on `foundry` differently from `buy`.
+ */
+export function isLeaf(item: { floor: string }) {
+	return item.floor !== 'assemble';
+}
+
+export function pickQuote<T extends { isPreferred: boolean; priceCents: number | null }>(
+	rows: T[]
+) {
+	return (
+		rows.find((q) => q.isPreferred && q.priceCents != null) ??
+		rows.find((q) => q.priceCents != null) ??
+		null
+	);
 }
 
 export async function wouldCycle(db: DabomDb, parentSku: string, childSku: string) {
@@ -61,6 +76,7 @@ export type BomLineView = {
 		sku: string;
 		name: string;
 		kind: string;
+		floor: string;
 		category: string;
 		status: string;
 		manufacturer: string | null;
@@ -111,6 +127,7 @@ export async function listBom(db: DabomDb, parentSku: string): Promise<BomLineVi
 				sku: c.sku,
 				name: c.name,
 				kind: c.kind,
+				floor: c.floor,
 				category: c.category,
 				status: c.status,
 				manufacturer: c.manufacturer,
@@ -131,7 +148,7 @@ export async function explodeBom(db: DabomDb, rootSku: string): Promise<Exploded
 		for (const line of lines) {
 			const qtyRollup = factor * line.qty;
 			out.push({ ...line, path: [...path, line.childSku], qtyEach: line.qty, qtyRollup });
-			if (line.child.kind !== 'part') {
+			if (!isLeaf(line.child)) {
 				await walk(line.childSku, [...path, line.childSku], qtyRollup);
 			}
 		}
@@ -195,12 +212,12 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 			knownMassG: root.massG ?? 0,
 			knownWattsTypical: root.wattsTypical ?? 0,
 			lineCount: 0,
-			partCount: root.kind === 'part' ? 1 : 0
+			partCount: isLeaf(root) ? 1 : 0
 		};
 	}
 
 	for (const row of exploded) {
-		if (row.child.kind === 'part') {
+		if (isLeaf(row.child)) {
 			leafSkus.add(row.childSku);
 			const child = await itemOf(row.childSku);
 			const price = row.unitPriceCents;
@@ -269,8 +286,14 @@ export async function addBomLine(
 		sortOrder?: number;
 	}
 ) {
-	await getItemOrThrow(db, parentSku);
+	const parent = await getItemOrThrow(db, parentSku);
 	await getItemOrThrow(db, body.childSku);
+	if (isLeaf(parent)) {
+		throw new HttpError(
+			409,
+			`${parentSku} has floor ${parent.floor}; only assemble items can have BOM lines`
+		);
+	}
 	if (body.qty < 1) throw new HttpError(422, 'qty must be >= 1');
 	if (await wouldCycle(db, parentSku, body.childSku)) {
 		throw new HttpError(409, `Adding ${body.childSku} under ${parentSku} would cycle the BOM`);
@@ -321,11 +344,7 @@ export async function updateBomLine(
 	});
 	if (!existing) throw new HttpError(404, `BOM line ${lineId} not found on ${parentSku}`);
 	if (patch.qty != null && patch.qty < 1) throw new HttpError(422, 'qty must be >= 1');
-	const [row] = await db
-		.update(bomLines)
-		.set(patch)
-		.where(eq(bomLines.id, lineId))
-		.returning();
+	const [row] = await db.update(bomLines).set(patch).where(eq(bomLines.id, lineId)).returning();
 	return row;
 }
 

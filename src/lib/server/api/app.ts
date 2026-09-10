@@ -7,6 +7,7 @@ import {
 	explodeBom,
 	getItemOrThrow,
 	HttpError,
+	isLeaf,
 	listBom,
 	rollup,
 	updateBomLine,
@@ -95,12 +96,18 @@ export function createApi(db: DabomDb) {
 			const q = c.req.valid('query');
 			const filters = [];
 			if (q.kind) filters.push(eq(items.kind, q.kind));
+			if (q.floor) filters.push(eq(items.floor, q.floor));
 			if (q.category) filters.push(eq(items.category, q.category));
 			if (q.status) filters.push(eq(items.status, q.status));
 			if (q.q) {
 				const like = `%${q.q}%`;
 				filters.push(
-					or(ilike(items.sku, like), ilike(items.name, like), ilike(items.mpn, like), ilike(items.manufacturer, like))
+					or(
+						ilike(items.sku, like),
+						ilike(items.name, like),
+						ilike(items.mpn, like),
+						ilike(items.manufacturer, like)
+					)
 				);
 			}
 			const where = filters.length ? and(...filters) : undefined;
@@ -158,14 +165,33 @@ export function createApi(db: DabomDb) {
 			tags: ['Items'],
 			summary: 'Update an item',
 			request: { params: SkuParam, body: json(ItemPatchSchema, 'Patch') },
-			responses: { 200: json(ItemSchema, 'Updated'), ...err(404, 'Missing') }
+			responses: {
+				200: json(ItemSchema, 'Updated'),
+				...err(404, 'Missing'),
+				...err(409, 'Floor demoted while children exist')
+			}
 		}),
 		async (c) => {
 			const { sku } = c.req.valid('param');
 			await getItemOrThrow(db, sku);
+			const patch = c.req.valid('json');
+			// Second door on the same invariant as the BOM-line insert guard:
+			// an item that already has children cannot be demoted to a leaf.
+			if (patch.floor && patch.floor !== 'assemble') {
+				const children = await listBom(db, sku);
+				if (children.length) {
+					throw new HttpError(
+						409,
+						`${sku} has ${children.length} BOM lines; cannot set floor ${patch.floor}`,
+						{
+							childLines: children.length
+						}
+					);
+				}
+			}
 			const [row] = await db
 				.update(items)
-				.set({ ...c.req.valid('json'), updatedAt: new Date() })
+				.set({ ...patch, updatedAt: new Date() })
 				.where(eq(items.sku, sku))
 				.returning();
 			return c.json(itemDto(row));
@@ -261,6 +287,12 @@ export function createApi(db: DabomDb) {
 			const { sku } = c.req.valid('param');
 			const { lines: incoming } = c.req.valid('json');
 			const parent = await getItemOrThrow(db, sku);
+			if (incoming.length && isLeaf(parent)) {
+				throw new HttpError(
+					409,
+					`${sku} has floor ${parent.floor}; only assemble items can have BOM lines`
+				);
+			}
 			for (const line of incoming) {
 				if (await wouldCycle(db, sku, line.childSku)) {
 					throw new HttpError(409, `Replacing BOM would cycle via ${line.childSku}`);
@@ -454,7 +486,11 @@ export function createApi(db: DabomDb) {
 		}),
 		async (c) => {
 			const { id } = c.req.valid('param');
-			const [row] = await db.update(quotes).set(c.req.valid('json')).where(eq(quotes.id, id)).returning();
+			const [row] = await db
+				.update(quotes)
+				.set(c.req.valid('json'))
+				.where(eq(quotes.id, id))
+				.returning();
 			if (!row) throw new HttpError(404, `Quote ${id} not found`);
 			return c.json(quoteDto(row));
 		}

@@ -15,6 +15,7 @@ export type Item = {
 	sku: string;
 	name: string;
 	kind: 'part' | 'assembly' | 'kit';
+	floor: 'buy' | 'assemble' | 'foundry';
 	category: string;
 	status: string;
 	description: string;
@@ -47,6 +48,7 @@ export type BomLine = {
 		sku: string;
 		name: string;
 		kind: string;
+		floor: string;
 		category: string;
 		status: string;
 		manufacturer: string | null;

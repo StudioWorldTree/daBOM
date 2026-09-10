@@ -1,5 +1,6 @@
 import {
 	itemCategories,
+	itemFloors,
 	itemKinds,
 	itemStatuses,
 	type Item,
@@ -23,6 +24,7 @@ export function itemDto(row: Item & { quotes?: Quote[] }) {
 		sku: row.sku,
 		name: row.name,
 		kind: asUnion(row.kind, itemKinds),
+		floor: asUnion(row.floor, itemFloors),
 		category: asUnion(row.category, itemCategories),
 		status: asUnion(row.status, itemStatuses),
 		description: row.description,
