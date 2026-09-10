@@ -11,3 +11,7 @@
 - 2026-09-09 a seed backfill that sets `assemble` for every `bom_lines` parent would mask an untagged catalog row; the catalog test must import `seedItems`/`seedBoms` with no DB (`add-floor-seed`).
 - 2026-09-09 `NewItem` from `$inferInsert` makes `floor` optional because of the column default; `SeedItem` must require `'buy' | 'assemble'` or an untagged row typechecks (`add-floor-seed`).
 - 2026-09-09 in-house resin shells stay `buy` until resin plus labor are children; empty `assemble` rolls up to zero and drops the quote (`add-floor-seed`).
+- 2026-09-10 mapping every `###`+`PN` heading as a BOM line would ingest the AGX Thor Developer Kit the brief rejected and miss the Rogue-T5 (`add-ingest-skills`).
+- 2026-09-10 the Rogue-T5 part number sits in a `Carrier-only` cell, not a `| PN |` row; candidate extraction must match `PN` inside any table cell (`add-ingest-skills`).
+- 2026-09-10 an ambiguous two-part cart line (ATS Thor HS passive vs active) must leave `mpn` null; picking one invents a choice the document did not make (`add-ingest-skills`).
+- 2026-09-10 a helper under `src/lib/skills/` would put a markdown parser under `src/`; tests live under `skills/**` (`add-ingest-skills`).

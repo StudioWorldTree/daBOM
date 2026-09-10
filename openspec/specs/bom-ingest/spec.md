@@ -43,7 +43,7 @@ a cycle closed by a `sku` reference is 409.
 
 The system SHALL accept `application/json` only. The system SHALL
 reject markdown and `application/pdf` with 415. Markdown and PDF
-parsers live in `add-ingest-skills`.
+parsers live in `ingest-skills`.
 
 #### Scenario: Thor shopping kit as JSON
 

@@ -138,10 +138,54 @@ single-line POST uses.
 **Consequences.**
 
 - Skills stay HTTP clients (`add-ingest-skills`).
-- Markdown and PDF parsers are not this route.
+- Markdown and PDF parsers are not this route; they live in
+  `skills/ingest-hardware/` (`add-ingest-skills`).
 - Seed PK migrations and numeric SKU suffixes (`-2`) stay out.
 - Catalog floor is named in `catalog.ts` (`add-floor-seed`).
 
-**Not decided here.** Markdown/PDF parsers (`add-ingest-skills`).
+**Not decided here.** Quote adapters (`add-price-skills`). Auth on `/api`.
 
 **Living spec:** [`openspec/specs/bom-ingest/spec.md`](openspec/specs/bom-ingest/spec.md)
+
+---
+
+### ADR-005: Ingest skill is HTTP-only; tree file before POST ✅
+
+**Status:** Accepted 2026-09-10 (`add-ingest-skills`).
+**Blast:** `skills/ingest-hardware/`, agent ingest path.
+
+**Decision.** The ingest skill's only write is `POST /api/v1/ingest` to a
+running server (default `http://localhost:5173/api/v1`). It does not
+import drizzle, `$lib/server`, open `data/dabom/`, run SQL, or call
+`ingestTree()` in-process. Checkable: zero hits in the skill dir for
+those tokens.
+
+The product of extraction is an `IngestRequest` JSON file on disk. The
+POST takes that file path as its only input. No step goes from source
+doc to POST without the file. The parser emits candidates (heading,
+optional manufacturer, mpn, notes). The tree is composed from a
+selection: a named cart section, an argument list of MPNs, or a hand
+edit of the tree file — not every heading that has a `PN` row.
+
+PDF sources go through `pdf2md` then the same candidate → selection
+path. No PDF or markdown parser in the app `package.json` or under
+`src/`. Helpers live under `skills/ingest-hardware/`. `sku` stays
+absent unless a human names one. Price cells are dropped.
+
+**Why.** Ingest is write-through with no draft store, so the tree file
+is the only place a human sees the tree before it is data. A shopping
+brief is a menu; a BOM is a selection. Mapping every `###`+`PN` as a
+line would ingest the AGX Thor Developer Kit the author rejected and
+miss the Rogue-T5. HTTP-only keeps the skill from becoming a second
+write path beside REST.
+
+**Consequences.**
+
+- POST step never accepts a markdown or PDF path.
+- On 409/422: show the body, edit the tree file, re-POST the whole file.
+- Quotes are `add-price-skills`.
+- Tests live under `skills/**`, not `src/`.
+
+**Not decided here.** Quote refresh (`add-price-skills`). Auth on `/api`.
+
+**Living spec:** [`openspec/specs/ingest-skills/spec.md`](openspec/specs/ingest-skills/spec.md)

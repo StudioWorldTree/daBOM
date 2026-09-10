@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
-  "id": "pkt-add-ingest-skills-advise",
-  "node_id": "add-ingest-skills-advise",
+  "id": "pkt-add-ingest-skills-advise-2",
+  "node_id": "add-ingest-skills-advise-2",
   "capability": "ingest-skills",
   "change_id": "add-ingest-skills",
-  "goal": "Advise add-ingest-skills. Blind pass then verdict. Write openspec/changes/add-ingest-skills/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "goal": "Re-advise add-ingest-skills after send-back amend 205d6fb. Blind pass then verdict. Write openspec/changes/add-ingest-skills/reviews/2026-09-10-re-advise.md (must sort after 2026-09-09-advise.md). You are Fable 5.1, other-family reader. Author is Grok. Do not implement. Prior send-back: reviews/2026-09-09-advise.md. Do not copy that verdict. Confirm the three send-back lines (tree file before POST, candidates plus selection, whole SHOPPING.md fixture without the AGX dev kit) are closed by SHALL+scenario.",
   "non_goals": [
     "Implement the skill",
     "Fold",
@@ -14,7 +14,7 @@
   "anchors": [
     {
       "symbol": "openspec/specs/bom-ingest/spec.md",
-      "invariant": "POST /ingest is JSON-only write-through; markdown parser was deferred to this change"
+      "invariant": "POST /ingest is JSON-only write-through"
     },
     {
       "symbol": "src/lib/server/api/app.ts:599",
@@ -23,8 +23,8 @@
   ],
   "acceptance": {
     "kind": "contrast",
-    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; HTTP-only is pinned or send-back names the hole.",
-    "if_false": "No review file, or ADVISE without READER, or skill-side PGLite is accepted."
+    "if_true": "Review file 2026-09-10-re-advise.md exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; tree-before-POST and production-kit-is-not-the-menu are pinned or send-back names the remaining hole.",
+    "if_false": "No review file, or ADVISE without READER, or every PN heading as a BOM is accepted."
   },
   "out_of_scope": [
     { "item": "Quote adapters", "tracked_as": "add-price-skills" }
@@ -39,9 +39,10 @@
   },
   "inherited": [
     "Why: POST /ingest writes JSON trees. Agents still have to turn a shopping brief, CAMERAS.md, or a datasheet PDF into that tree. Without a repo skill they will SQL the PGLite file.",
-    "Cited: openspec/specs/bom-ingest/spec.md JSON-only, pdf/markdown 415.",
+    "Cited: openspec/specs/bom-ingest/spec.md JSON-only.",
     "Cited: src/lib/server/api/app.ts:599 POST /ingest.",
-    "Living stub: openspec/specs/ingest-skills/spec.md. Delta after the 10-line take."
+    "Living stub: openspec/specs/ingest-skills/spec.md. Delta after the 10-line take.",
+    "Amend 205d6fb closed send-back holes. Prior review: openspec/changes/add-ingest-skills/reviews/2026-09-09-advise.md — after the take."
   ],
   "load_class": "structure-clear",
   "rigor": "change",
