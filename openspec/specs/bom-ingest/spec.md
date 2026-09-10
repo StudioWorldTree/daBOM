@@ -1,4 +1,127 @@
 # bom-ingest
 
-Living spec for write-through ingest. Empty until the first activated
-change folds. In-flight deltas: `openspec/changes/*/specs/bom-ingest/`.
+What **is** built: write-through JSON ingest (`add-ingest-api`).
+
+## Purpose
+
+Agents write a nested BOM through REST in one transaction. There is no
+draft store. JSON tree is the only body; identity is pair match, then
+MPN-only, then supplied sku, then mint. Matched seed rows are not
+overwritten.
+
+## Requirements
+
+### Requirement: Ingest writes through
+
+The system SHALL accept `POST /api/v1/ingest` and upsert items and BOM
+lines through the existing tables in one transaction. The system SHALL
+NOT keep a draft store. Any non-2xx response SHALL write nothing. The
+well-known OpenAPI document SHALL list the operation. The 201 body SHALL
+report, for every node in the tree, its `sku`, an `action` of `created`
+or `matched`, its `floor`, and the ids of the BOM lines from that node to
+its children. BOM lines SHALL be inserted through the same floor and
+cycle guards as `POST /items/{sku}/bom`, using the transaction handle, so
+a cycle closed by a `sku` reference is 409.
+
+#### Scenario: JSON tree becomes a kit
+
+- GIVEN a JSON ingest body whose root is a kit with two buy children
+- WHEN POST `/api/v1/ingest`
+- THEN the response is 201, each node includes `sku`, `action` of
+  `created` or `matched`, `floor`, and line ids, GET
+  `/api/v1/items/{root}/bom` returns those children, and the well-known
+  spec lists `POST /ingest`
+
+#### Scenario: Failed child writes nothing
+
+- GIVEN a JSON body whose root is new and a child would hang under
+  seeded `t4000-som`
+- WHEN POST `/api/v1/ingest`
+- THEN the response is 409 and the new root SKU does not exist
+
+### Requirement: Source kinds
+
+The system SHALL accept `application/json` only. The system SHALL
+reject markdown and `application/pdf` with 415. Markdown and PDF
+parsers live in `add-ingest-skills`.
+
+#### Scenario: Thor shopping kit as JSON
+
+- GIVEN a JSON tree of the T4000 SOM (NVIDIA, MPN `900-13834-0000-000`)
+  and the preferred carrier, rooted as a production kit
+- WHEN POST `/api/v1/ingest`
+- THEN the kit’s BOM includes `t4000-som` and the preferred carrier
+  without a client POSTing each `/items` and `/bom` line
+
+#### Scenario: PDF is not parsed here
+
+- GIVEN a PDF body
+- WHEN POST `/api/v1/ingest`
+- THEN the response is 415
+
+### Requirement: SKU mint and collision
+
+The system SHALL slug by lowercasing, NFKD-stripping non-ASCII, and
+collapsing non-alphanumerics to hyphens. An empty slug SHALL be 422.
+The system SHALL resolve identity in this order: (manufacturer, MPN)
+pair match; MPN-only match when incoming manufacturer is null (exactly
+one row, else 409); supplied kebab sku (create if new, 422 if not
+kebab); mint from pair or name. A minted or supplied sku that collides
+with a different identity SHALL be 409. An incoming node with no
+(manufacturer, mpn) pair never collides: a supplied existing sku
+matches. A minted slug that lands on a row carrying a pair SHALL be
+409. A name-minted slug that hits a row with no manufacturer/MPN SHALL
+reuse that row. Matched rows SHALL NOT be overwritten except to fill
+null `manufacturer`, `mpn`, or `source`. Name-minted creates SHALL
+default `status` to `placeholder` unless the payload set one.
+
+#### Scenario: MPN alone resolves a seeded part
+
+- GIVEN a node carrying MPN `900-13834-0000-000`, no manufacturer, and no
+  sku
+- WHEN POST `/api/v1/ingest`
+- THEN the node resolves to `t4000-som` with `action` `matched`, and a
+  node carrying an MPN that two items share is 409
+
+#### Scenario: Seed identity wins
+
+- GIVEN seeded item `t4000-som` with manufacturer NVIDIA and MPN
+  `900-13834-0000-000`
+- WHEN ingest names that module without supplying sku `t4000-som`
+- THEN no new SKU is created, the BOM child is `t4000-som`, and the
+  seed `name` and `status` are unchanged
+
+#### Scenario: Name collision with an identified part is 409
+
+- GIVEN a new root, a child that matches a seed by MPN, and a second
+  child whose minted name-slug equals an existing item that has an MPN
+- WHEN POST `/api/v1/ingest`
+- THEN the response is 409 and nothing is written
+
+### Requirement: Ingest respects floor
+
+The system SHALL default new ingest items to `buy`. The system SHALL set
+a node that lists children to `assemble` before inserting its BOM lines
+when that node is new. Promotion is for new nodes only: the system SHALL
+reject ingest that would hang children on an existing `buy` or `foundry`
+item, or retag a `foundry` parent, with 409.
+
+#### Scenario: Cannot explode a buy SOM via ingest
+
+- GIVEN `t4000-som` with floor `buy`
+- WHEN ingest tries to attach a die child under it
+- THEN the response is 409, the SOM BOM stays empty, and no new root
+  from that body exists
+
+### Requirement: Ingest is idempotent
+
+A second identical POST SHALL match `(parent, child, role)` and set
+qty. It SHALL NOT insert duplicate BOM lines. Ingest SHALL NOT write
+quote rows.
+
+#### Scenario: Repeat POST
+
+- GIVEN a successful ingest of a two-child kit
+- WHEN the same body is posted again
+- THEN the kit still has two lines, qty is the payload qty, and quote
+  count is unchanged

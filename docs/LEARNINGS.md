@@ -5,3 +5,6 @@
 - 2026-09-09 a preferred vendor whose chosen row has no price (seed `cti-msg103`) must fall through to method rank or roll-up regresses (`add-price-access`).
 - 2026-09-09 PATCH `isPreferred` on a superseded (item, vendor) row is 422; otherwise the flag is invisible to the current row (`add-price-access`).
 - 2026-09-09 a March API beating a September crawl is only honest if roll-up carries `asOf` = min `checkedAt` of chosen priced quotes (`add-price-access`).
+- 2026-09-09 promoting an existing `buy` parent on ingest would both explode a SOM and 409 it; promotion is new nodes only (`add-ingest-api`).
+- 2026-09-09 a supplied sku is a reference: an incoming node with no (manufacturer, mpn) pair never collides, or `sku: t4000-som` with no MPN 409s the seed (`add-ingest-api`).
+- 2026-09-09 name-minted `status` default must live on the ingest node schema; `ItemCreateSchema`'s `candidate` would mark brief lines as authored (`add-ingest-api`).

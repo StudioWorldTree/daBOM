@@ -1,6 +1,6 @@
 # OpenSpec
 
-Capabilities: `bom-compose`, `bom-quotes`, `bom-ingest` (in-flight).
+Capabilities: `bom-compose`, `bom-quotes`, `bom-ingest`.
 Changes live in `openspec/changes/<id>/`. Fold updates
 `openspec/specs/<capability>/spec.md`.
 

@@ -95,3 +95,53 @@ lie.
 (`add-ingest-api`).
 
 **Living spec:** [`openspec/specs/bom-quotes/spec.md`](openspec/specs/bom-quotes/spec.md)
+
+---
+
+### ADR-004: Ingest is write-through; mint and collision are ordered ✅
+
+**Status:** Accepted 2026-09-09 (`add-ingest-api`).
+**Blast:** `POST /ingest`, item identity, BOM write-through.
+
+**Decision.** `POST /api/v1/ingest` upserts `items` and `bom_lines` in
+one transaction. No draft store. JSON tree only; markdown and PDF are
+415. Any non-2xx rolls the whole tree back. Quotes are not written.
+
+Identity per node, in this order: (manufacturer, MPN) pair match
+(reuse that SKU even if the payload supplied a different one); MPN-only
+when incoming manufacturer is null (exactly one row, else 409); supplied
+kebab sku (create if new, 422 if not kebab); mint from pair or name.
+A supplied sku is a reference: an incoming node with no pair never
+collides, so a supplied existing sku matches. A minted slug is a guess:
+landing on a row that carries a pair is 409. No `-2` suffix. Matched
+rows fill null `manufacturer`, `mpn`, or `source` only. Name-minted
+creates default `status: placeholder` on the ingest node schema; POST
+`/items` still defaults `candidate`.
+
+Floor: new items default `buy`. New nodes that list children are set
+`assemble` before lines insert. Promotion is new nodes only; hanging
+children on an existing `buy` or `foundry` parent is 409. Lines go
+through `addBomLine` on the transaction handle. Re-POST sets qty on
+`(parent, child, role)`.
+
+201 body: per node `sku`, `action` `created` | `matched`, `floor`, and
+line ids.
+
+**Why.** Agents ingesting a shopping brief must write a nested BOM
+through REST. There is no draft store and no skill-side SQL. Pair match
+first so a brief with a real MPN does not fork a seed because the agent
+guessed a sku. Promoting an existing `buy` parent would explode a SOM;
+the floor and cycle doors on `addBomLine` are the same doors a
+single-line POST uses.
+
+**Consequences.**
+
+- Skills stay HTTP clients (`add-ingest-skills`).
+- Markdown and PDF parsers are not this route.
+- Seed PK migrations and numeric SKU suffixes (`-2`) stay out.
+- Catalog floor retag is `add-floor-seed`.
+
+**Not decided here.** Markdown/PDF parsers (`add-ingest-skills`). Catalog
+floor retag (`add-floor-seed`).
+
+**Living spec:** [`openspec/specs/bom-ingest/spec.md`](openspec/specs/bom-ingest/spec.md)
