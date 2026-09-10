@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-price-skills-advise",
+  "node_id": "add-price-skills-advise",
+  "capability": "price-skills",
+  "change_id": "add-price-skills",
+  "goal": "Advise add-price-skills. Blind pass then verdict. Write openspec/changes/add-price-skills/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "non_goals": [
+    "Implement vendor HTTP clients",
+    "Fold",
+    "Open design.md or tasks.md before the 10-line independent take",
+    "Ingest skill"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/specs/bom-quotes/spec.md",
+      "invariant": "append-only quotes, method rank, API then crawl then headed; adapters were deferred here"
+    },
+    {
+      "symbol": "src/lib/server/api/app.ts:474",
+      "invariant": "POST /quotes exists; failed fetch must not insert"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; API-before-crawl is pinned or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or scrape-first is accepted."
+  },
+  "out_of_scope": [
+    { "item": "Ingest skill", "tracked_as": "add-ingest-skills" },
+    { "item": "Octopart", "tracked_as": "skipped" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-price-skills/reviews/",
+      "openspec/changes/add-price-skills/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: Quotes have method and provenance. Nothing yet fetches them. Seeded street prices rot unless a skill walks the access ladder and POSTs /quotes.",
+    "Cited: openspec/specs/bom-quotes/spec.md ladder and append-only.",
+    "Cited: src/lib/server/api/app.ts POST /quotes.",
+    "Living stub: openspec/specs/price-skills/spec.md. Delta after the 10-line take.",
+    "Steer: Digi-Key/Mouser/Arrow API first; B&H/CTI crawl or headed; Playwright MCP for login."
+  ],
+  "load_class": "intention-critical",
+  "rigor": "change",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

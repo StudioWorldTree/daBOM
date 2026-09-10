@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-skills-advise",
+  "node_id": "add-ingest-skills-advise",
+  "capability": "ingest-skills",
+  "change_id": "add-ingest-skills",
+  "goal": "Advise add-ingest-skills. Blind pass then verdict. Write openspec/changes/add-ingest-skills/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "non_goals": [
+    "Implement the skill",
+    "Fold",
+    "Open design.md or tasks.md before the 10-line independent take",
+    "Quote refresh"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/specs/bom-ingest/spec.md",
+      "invariant": "POST /ingest is JSON-only write-through; markdown parser was deferred to this change"
+    },
+    {
+      "symbol": "src/lib/server/api/app.ts:599",
+      "invariant": "POST /ingest exists; skills must HTTP, not SQL"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; HTTP-only is pinned or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or skill-side PGLite is accepted."
+  },
+  "out_of_scope": [
+    { "item": "Quote adapters", "tracked_as": "add-price-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-ingest-skills/reviews/",
+      "openspec/changes/add-ingest-skills/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: POST /ingest writes JSON trees. Agents still have to turn a shopping brief, CAMERAS.md, or a datasheet PDF into that tree. Without a repo skill they will SQL the PGLite file.",
+    "Cited: openspec/specs/bom-ingest/spec.md JSON-only, pdf/markdown 415.",
+    "Cited: src/lib/server/api/app.ts:599 POST /ingest.",
+    "Living stub: openspec/specs/ingest-skills/spec.md. Delta after the 10-line take."
+  ],
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
