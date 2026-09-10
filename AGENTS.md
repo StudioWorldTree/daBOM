@@ -53,6 +53,34 @@ npm run db:generate  # after schema.ts changes
 Crib UI: `/`. Item + BOM: `/items/{sku}`. Stopgap Swagger: `/api/v1/docs`
 (replace with the owned explorer; do not grow it).
 
+## How an agent works this crib
+
+The contract is the live OpenAPI document, not this file's memory of
+routes. PGLite is not an agent surface.
+
+1. **Server.** If `http://localhost:5173/health` (or `/api/v1/health`)
+   is down, `npm run dev` in this repo. Do not invent a second database.
+2. **Spec.** `GET http://localhost:5173/.well-known/openapi.json`.
+   Operations, bodies, and errors come from there. Do not hard-code a
+   route list from an old chat.
+3. **New kit / ingest a brief, PDF, or notebook page.** Read
+   `skills/ingest-hardware/SKILL.md`. Write an `IngestRequest` JSON file,
+   read it, then `POST /api/v1/ingest`. Never SQL, never drizzle, never
+   `data/dabom/`.
+4. **One SKU, one BOM line, a vendor.** `POST /api/v1/items`,
+   `POST /api/v1/items/{sku}/bom`, `POST /api/v1/vendors` as the spec
+   says. Floor defaults `buy`. Only `assemble` parents take children.
+5. **Price / look up a street source.** Read `skills/price-quote/SKILL.md`.
+   `POST /api/v1/quotes`. Failed fetch writes nothing. Keys stay in the
+   environment.
+6. **Read back.** `GET /api/v1/items/{sku}/bom?explode=true` and
+   `GET /api/v1/items/{sku}/rollup`.
+
+Product facts (Thor, HEVC, /i) stay in `../AICamera`. This crib stores
+SKUs. Grok loads these skills from `.grok/skills/` (symlinks into
+`skills/`). A session started in AICamera still has to follow that
+repo's `AGENTS.md` pointer here.
+
 ## API first
 
 A feature is not done when a page exists. Order:
