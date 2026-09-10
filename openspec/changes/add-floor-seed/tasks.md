@@ -18,3 +18,7 @@
 - [x] Required `floor` on `SeedItem` so an untagged row fails typecheck
 - [x] Catalog-level test over `seedItems`/`seedBoms`, not only the DB
 - [x] No `foundry` in the seed; resin shells named `buy`
+
+      Reader-added (re-advise, fable-5.1-arch-review):
+
+- [ ] Catalog test also asserts every `seedBoms` parent/child SKU exists in `seedItems`
