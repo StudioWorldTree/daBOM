@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-floor-seed-advise",
+  "node_id": "add-floor-seed-advise",
+  "capability": "bom-compose",
+  "change_id": "add-floor-seed",
+  "goal": "Advise add-floor-seed. Blind pass then verdict. Write openspec/changes/add-floor-seed/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement.",
+  "non_goals": [
+    "Implement catalog retag",
+    "Fold",
+    "Open design.md or tasks.md before the 10-line independent take",
+    "POST /ingest"
+  ],
+  "anchors": [
+    {
+      "symbol": "src/lib/server/db/catalog.ts:27-55",
+      "invariant": "seed t4000-som has manufacturer/mpn, no floor field in the object"
+    },
+    {
+      "symbol": "src/lib/server/db/seed.ts:71-76",
+      "invariant": "seed backfills floor=assemble for any parent in bom_lines; everyone else stays default buy"
+    },
+    {
+      "symbol": "openspec/specs/bom-compose/spec.md",
+      "invariant": "Living floor spec; seed retag was out of compose-schema"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; T4000 stays a buy leaf or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or exploding the SOM die is accepted."
+  },
+  "out_of_scope": [
+    { "item": "Ingest route", "tracked_as": "add-ingest-api" },
+    { "item": "Foundry die breakdown", "tracked_as": "later" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-floor-seed/reviews/",
+      "openspec/changes/add-floor-seed/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: Compose-schema backfills assemble for whoever is a parent in bom_lines and defaults everyone else to buy. The crib still does not say that T4000, Rogue-T5, PYXIS, RV1126B turret/core, and the PoE switch are buy leaves.",
+    "Cited: catalog.ts:27-55 t4000-som seed object has no floor key.",
+    "Cited: seed.ts:71-76 backfill assemble for parents.",
+    "Living spec: openspec/specs/bom-compose/spec.md. Delta: openspec/changes/add-floor-seed/specs/bom-compose/spec.md — after the 10-line take.",
+    "LEARNINGS: DEFAULT buy would explode seeded kits; parent backfill is a safety net (add-compose-schema)."
+  ],
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
