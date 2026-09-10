@@ -15,3 +15,6 @@
 - 2026-09-10 the Rogue-T5 part number sits in a `Carrier-only` cell, not a `| PN |` row; candidate extraction must match `PN` inside any table cell (`add-ingest-skills`).
 - 2026-09-10 an ambiguous two-part cart line (ATS Thor HS passive vs active) must leave `mpn` null; picking one invents a choice the document did not make (`add-ingest-skills`).
 - 2026-09-10 a helper under `src/lib/skills/` would put a markdown parser under `src/`; tests live under `skills/**` (`add-ingest-skills`).
+- 2026-09-10 a fuzzy Digi-Key/Mouser hit posted as `api` out-ranks the correct seed or crawl in roll-up; exact `items.mpn` match only, null mpn skips the API rung (`add-price-skills`).
+- 2026-09-10 seeded B&H/Digi-Key/Mouser rows carry no URL and `vendors` holds only a homepage; crawl the latest quote URL else Firecrawl-search manufacturer+MPN on the vendor domain (`add-price-skills`).
+- 2026-09-10 a vendor whose lowest break is a minimum order above qty 1 has no honest qty-1 price; post that tier and name the minimum in `notes` (`add-price-skills`).

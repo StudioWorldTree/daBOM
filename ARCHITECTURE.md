@@ -89,11 +89,10 @@ lie.
 
 - Corrections are a new row with method `manual`, not a PATCH of cents.
 - Seed backfill is `method=seed`; human-typed CTI quotes are `manual`.
-- Adapter HTTP clients are `add-price-skills`, not this change.
+- Adapter HTTP clients live in `skills/price-quote/` (`add-price-skills`).
 - `DELETE /items/{sku}` still deletes quotes: the item is gone.
 
-**Not decided here.** Vendor API adapters (`add-price-skills`). Ingest
-(`add-ingest-api`).
+**Not decided here.** Auth on `/api`.
 
 **Living spec:** [`openspec/specs/bom-quotes/spec.md`](openspec/specs/bom-quotes/spec.md)
 
@@ -143,7 +142,7 @@ single-line POST uses.
 - Seed PK migrations and numeric SKU suffixes (`-2`) stay out.
 - Catalog floor is named in `catalog.ts` (`add-floor-seed`).
 
-**Not decided here.** Quote adapters (`add-price-skills`). Auth on `/api`.
+**Not decided here.** Auth on `/api`.
 
 **Living spec:** [`openspec/specs/bom-ingest/spec.md`](openspec/specs/bom-ingest/spec.md)
 
@@ -183,9 +182,55 @@ write path beside REST.
 
 - POST step never accepts a markdown or PDF path.
 - On 409/422: show the body, edit the tree file, re-POST the whole file.
-- Quotes are `add-price-skills`.
+- Quote refresh lives in `skills/price-quote/` (`add-price-skills`).
 - Tests live under `skills/**`, not `src/`.
 
-**Not decided here.** Quote refresh (`add-price-skills`). Auth on `/api`.
+**Not decided here.** Auth on `/api`.
 
 **Living spec:** [`openspec/specs/ingest-skills/spec.md`](openspec/specs/ingest-skills/spec.md)
+
+---
+
+### ADR-006: Quote skill is HTTP-only; ladder posts the rung that priced it ✅
+
+**Status:** Accepted 2026-09-10 (`add-price-skills`).
+**Blast:** `skills/price-quote/`, agent quote-refresh path.
+
+**Decision.** The quote skill's only write is `POST /api/v1/quotes` to a
+running server (default `http://localhost:5173/api/v1`). It does not
+import drizzle, `$lib/server`, open `data/dabom/`, or run SQL.
+Checkable: zero hits in the skill dir for those tokens.
+
+Per vendor, the ladder is distributor API (Digi-Key, Mouser, Arrow)
+then Firecrawl of the public page then a headed Playwright session.
+B&H and CTI/WDL start at crawl or headed. The posted `method` is the
+rung that produced the price. A failed fetch, login wall, parse miss,
+or fuzzy MPN inserts nothing. Headed is a human in a browser, not a
+code path.
+
+The API rung posts only on an exact `items.mpn` match (case and
+whitespace may differ; dashes and suffixes do not). A null `mpn` skips
+the API rung. Price is the unit price at quantity 1, with the tier
+written to `notes`; a vendor minimum above 1 is that tier and the note
+says so. Crawl URL is the latest quote row's `url` for that (item,
+vendor), else a Firecrawl search on manufacturer plus MPN scoped to
+the vendor domain; the fetched URL goes on the posted row. Keys come
+from the environment; none is committed.
+
+**Why.** Seeded street prices rot. The access ladder and append-only
+quotes already live in ADR-003; this change is the HTTP client that
+walks them. A near-miss part posted as `api` would out-rank the
+correct seed or crawl in roll-up, which is worse than no row. HTTP-only
+keeps the skill from becoming a second write path beside REST.
+
+**Consequences.**
+
+- Tests live under `skills/**` (plus two end-to-end cases in
+  `src/lib/server/api/app.test.ts` that POST through the app).
+- One vendor failing does not abort the rest of a SKU refresh.
+- US locale is pinned on API clients so `currency` stays `USD`.
+- Octopart/Nexar stay out.
+
+**Not decided here.** Auth on `/api`. Daily sweep scheduler.
+
+**Living spec:** [`openspec/specs/price-skills/spec.md`](openspec/specs/price-skills/spec.md)

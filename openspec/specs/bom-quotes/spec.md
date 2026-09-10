@@ -105,8 +105,8 @@ none of those quotes carry a date.
 A quote refresh SHALL try a distributor API (Digi-Key, Mouser, Arrow)
 before a crawl, and a crawl before a headed browser. A login wall SHALL
 surface a headed Playwright session rather than fail closed with no
-prompt. Failed fetches SHALL NOT insert a quote row. Adapter skills land
-in `add-price-skills`.
+prompt. Failed fetches SHALL NOT insert a quote row. Adapter skills live
+in `price-skills`.
 
 #### Scenario: Login wall is headed not a quote
 
