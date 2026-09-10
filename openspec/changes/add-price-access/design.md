@@ -20,9 +20,10 @@ after insert. PATCH may change `isPreferred`, `notes`, `inStock` only.
 
 A new row for the same (item, vendor) **supersedes**: it inherits
 `isPreferred` from the previous row for that pair, and that previous
-row’s preferred flag clears. Roll-up: latest row per vendor, then
-preferred vendor; if no preferred vendor, rank methods
-`api > headed > crawl > seed > manual`, then newest.
+row’s preferred flag clears. Roll-up: within a vendor, method rank
+`api > headed > crawl > seed > manual` then newest; across vendors,
+preferred vendor if that chosen row is priced, else the same rank,
+then newest.
 
 Failed fetches are not quotes. Do not insert a priceless row to record
 a login wall.

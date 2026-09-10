@@ -45,10 +45,10 @@ row SHALL have `isPreferred` cleared.
 
 ### Requirement: Roll-up ranks methods
 
-Roll-up SHALL pick the latest quote per vendor, then the preferred
-vendor if one is marked. If no vendor is preferred, it SHALL rank
-methods `api` then `headed` then `crawl` then `seed` then `manual`,
-then newest.
+Within a vendor, roll-up SHALL rank methods `api` then `headed` then
+`crawl` then `seed` then `manual`, then newest. Across vendors it
+SHALL pick the preferred vendor if that vendor's chosen row is priced,
+else the same method rank, then newest.
 
 #### Scenario: API beats a later crawl
 
