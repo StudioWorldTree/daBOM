@@ -3,12 +3,40 @@ import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { seedBoms, seedItems } from '../db/catalog';
 import { bomLines, createDb, type DabomDb } from '../db';
 import { seed } from '../db/seed';
 import { createApi } from './app';
 import { createRoot } from './root';
 
 const MIGRATIONS = path.resolve(process.cwd(), 'drizzle');
+
+// No database. The seed catalog is the crib every explode reads from, so the
+// floor has to be right in the arrays, not only after the seed backfill runs.
+describe('seed catalog', () => {
+	const parents = new Set(seedBoms.map((line) => line.parentSku));
+
+	it('tags every parent assemble and everything else buy', () => {
+		for (const row of seedItems) {
+			expect(row.floor, row.sku).toBe(parents.has(row.sku) ? 'assemble' : 'buy');
+		}
+	});
+
+	// The type already refuses `foundry`; this catches a cast or a widened
+	// row that slips past it.
+	it('names no foundry row', () => {
+		const floors: string[] = seedItems.map((row) => row.floor);
+		expect(floors).not.toContain('foundry');
+	});
+
+	it('points every BOM line at a catalog row', () => {
+		const skus = new Set(seedItems.map((row) => row.sku));
+		for (const line of seedBoms) {
+			expect(skus.has(line.parentSku), line.parentSku).toBe(true);
+			expect(skus.has(line.childSku), line.childSku).toBe(true);
+		}
+	});
+});
 
 describe('daBOM API', () => {
 	let app: ReturnType<typeof createApi>;
@@ -85,6 +113,7 @@ describe('daBOM API', () => {
 		const json = await res.json();
 		expect(json.lineCount).toBe(0);
 		expect(json.parent.sku).toBe('t4000-som');
+		expect(json.parent.floor).toBe('buy');
 	});
 
 	it('rolls up Cart T and rejects a cyclic line', async () => {

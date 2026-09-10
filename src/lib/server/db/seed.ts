@@ -29,6 +29,7 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 				set: {
 					name: item.name,
 					kind: item.kind,
+					floor: item.floor,
 					category: item.category,
 					status: item.status,
 					description: item.description,
@@ -68,8 +69,10 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 		);
 	}
 
-	// Backfill, mirroring migration 0001: the catalog carries no floor, so
-	// anything that turned out to be a parent is built here, not bought.
+	// Backfill, mirroring migration 0001. The shipped catalog now names the
+	// floor on every row, so this is a no-op on the seed — the catalog test
+	// pins all eight `seedBoms` parents to `assemble` already. It stays as a
+	// second door for a catalog that grew a parent without naming it.
 	await db
 		.update(items)
 		.set({ floor: 'assemble' })
