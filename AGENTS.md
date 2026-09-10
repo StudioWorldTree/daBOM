@@ -77,9 +77,9 @@ routes. PGLite is not an agent surface.
    `GET /api/v1/items/{sku}/rollup`.
 
 Product facts (Thor, HEVC, /i) stay in `../AICamera`. This crib stores
-SKUs. Grok loads these skills from `.grok/skills/` (symlinks into
-`skills/`). A session started in AICamera still has to follow that
-repo's `AGENTS.md` pointer here.
+SKUs. Grok loads ingest/price from `.grok/skills/` (symlinks into
+`skills/`). From any other repo, the user skill `~/.grok/skills/dabom`
+is how an agent finds this tree.
 
 ## API first
 
