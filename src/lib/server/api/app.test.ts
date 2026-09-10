@@ -8,6 +8,9 @@ import { bomLines, createDb, type DabomDb } from '../db';
 import { seed } from '../db/seed';
 import { createApi } from './app';
 import { createRoot } from './root';
+import { arrowResponse, LOGIN_WALL_PAGE } from '../../../../skills/price-quote/lib/fixtures';
+import { getItem, type DabomClient } from '../../../../skills/price-quote/lib/dabom';
+import { refreshVendor } from '../../../../skills/price-quote/lib/ladder';
 
 const MIGRATIONS = path.resolve(process.cwd(), 'drizzle');
 
@@ -635,5 +638,74 @@ describe('daBOM API', () => {
 		const good = await patch(`/quotes/${current.id}`, { isPreferred: true });
 		expect(good.status).toBe(200);
 		expect((await good.json()).isPreferred).toBe(true);
+	});
+	// --- add-price-skills -------------------------------------------------
+	// The price-quote skill is HTTP-only, so it is exercised through a fetch
+	// that routes daBOM URLs at this in-memory app and mocks the vendor legs.
+	// Nothing here imports the skill's writes past POST /quotes.
+
+	const LADDER_BASE = 'http://dabom.test/api/v1';
+
+	const ladderClient = (routes: Record<string, () => Response>): DabomClient => {
+		const fetcher = async (url: string, init?: RequestInit) => {
+			if (url.startsWith(LADDER_BASE)) return app.request(url.slice(LADDER_BASE.length), init);
+			for (const [prefix, answer] of Object.entries(routes)) {
+				if (url.startsWith(prefix)) return answer();
+			}
+			throw new Error(`unrouted fetch: ${url}`);
+		};
+		return { base: LADDER_BASE, fetch: fetcher };
+	};
+
+	const asJson = (body: unknown, status = 200) =>
+		new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+	it('writes a method api quote when the Arrow API prices the SOM exactly', async () => {
+		const client = ladderClient({
+			'https://api.arrow.com/': () => asJson(arrowResponse('900-13834-0000-000'))
+		});
+		const item = await getItem(client, 't4000-som');
+		expect(item.mpn).toBe('900-13834-0000-000');
+
+		const result = await refreshVendor(client, item, 'arrow', {
+			fetch: client.fetch,
+			env: { ARROW_LOGIN: 'duke@worldtree.io', ARROW_API_KEY: 'test-key' },
+			now: new Date('2026-09-10T17:00:00Z')
+		});
+
+		expect(result.posted).not.toBeNull();
+		const som = await (await app.request('/items/t4000-som')).json();
+		const written = som.quotes.find((q: { id: string }) => q.id === result.posted?.id);
+		expect(written).toMatchObject({
+			vendorId: 'arrow',
+			method: 'api',
+			priceCents: 299900,
+			currency: 'USD',
+			checkedAt: '2026-09-10',
+			url: 'https://www.arrow.com/en/products/900-13834-0000-000/nvidia'
+		});
+		expect(written.notes).toMatch(/price break qty 1/);
+	});
+
+	it('inserts nothing when the only page is behind a login wall', async () => {
+		const client = ladderClient({
+			'https://api.firecrawl.dev/v2/search': () =>
+				asJson({ data: { web: [{ url: 'https://connecttech.com/product/rogue-t5/' }] } }),
+			'https://api.firecrawl.dev/v2/scrape': () =>
+				asJson({ data: { markdown: LOGIN_WALL_PAGE, metadata: { statusCode: 200 } } })
+		});
+		const item = await getItem(client, 'rogue-t5');
+		const before = await (await app.request('/quotes')).json();
+
+		const result = await refreshVendor(client, item, 'cti', {
+			fetch: client.fetch,
+			env: { FIRECRAWL_API_KEY: 'fc-test' },
+			now: new Date('2026-09-10T17:00:00Z')
+		});
+
+		expect(result.posted).toBeNull();
+		expect(result.next).toBe('headed');
+		const after = await (await app.request('/quotes')).json();
+		expect(after.quotes).toHaveLength(before.quotes.length);
 	});
 });

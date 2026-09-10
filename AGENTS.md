@@ -24,6 +24,12 @@ Product facts stay in AICamera / web3d-space. This repo stores the crib.
 Repo skills live in `skills/` — agent surfaces over the API, never a second
 way into the database. `skills/ingest-hardware/` turns a hardware brief or a
 datasheet into a JSON tree file, then POSTs `/api/v1/ingest`.
+`skills/price-quote/` refreshes a quote down the access ladder — distributor
+API, then a Firecrawl of the public page, then a headed Playwright session —
+and POSTs `/api/v1/quotes`. A failed fetch or a login wall writes nothing.
+Distributor and Firecrawl keys come from the environment
+(`DIGIKEY_CLIENT_ID` / `DIGIKEY_ACCESS_TOKEN`, `MOUSER_API_KEY`,
+`ARROW_LOGIN` / `ARROW_API_KEY`, `FIRECRAWL_API_KEY`); none is ever committed.
 
 ## How to dev
 
