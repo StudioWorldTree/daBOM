@@ -1,6 +1,6 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
-import { and, count, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, ne, or } from 'drizzle-orm';
 import {
 	addBomLine,
 	deleteBomLine,
@@ -53,6 +53,15 @@ const json = <T>(schema: T, description: string) => ({
 
 function err(status: 400 | 404 | 409 | 422, description: string) {
 	return { [status]: json(ErrorSchema, description) } as const;
+}
+
+/** Rows for one (item, vendor) pair, newest insert first. */
+async function pairHistory(db: Pick<DabomDb, 'select'>, itemSku: string, vendorId: string) {
+	return db
+		.select()
+		.from(quotes)
+		.where(and(eq(quotes.itemSku, itemSku), eq(quotes.vendorId, vendorId)))
+		.orderBy(desc(quotes.createdAt), desc(quotes.id));
 }
 
 export function createApi(db: DabomDb) {
@@ -451,7 +460,10 @@ export function createApi(db: DabomDb) {
 			responses: { 200: json(QuoteListSchema, 'Quotes') }
 		}),
 		async (c) => {
-			const rows = await db.select().from(quotes).orderBy(desc(quotes.isPreferred));
+			const rows = await db
+				.select()
+				.from(quotes)
+				.orderBy(quotes.itemSku, quotes.vendorId, desc(quotes.createdAt));
 			return c.json({ quotes: rows.map(quoteDto) });
 		}
 	);
@@ -470,7 +482,45 @@ export function createApi(db: DabomDb) {
 			await getItemOrThrow(db, body.itemSku);
 			const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, body.vendorId) });
 			if (!vendor) throw new HttpError(404, `Vendor ${body.vendorId} not found`);
-			const [row] = await db.insert(quotes).values(body).returning();
+
+			// A failed fetch is not a quote. A fetched method that carries no
+			// price, or no date for that price, is a login wall or a parse
+			// miss, and the answer to those is the next rung of the ladder.
+			const fetched = body.method === 'api' || body.method === 'headed' || body.method === 'crawl';
+			if (fetched && body.priceCents == null) {
+				throw new HttpError(
+					422,
+					`method ${body.method} requires priceCents; record no row instead`
+				);
+			}
+			if (fetched && !body.checkedAt) {
+				throw new HttpError(422, `method ${body.method} requires checkedAt`);
+			}
+
+			// Append, never overwrite. The new row supersedes the pair: it
+			// inherits isPreferred, and the rows it replaces lose the flag, so
+			// a refresh moves the vendor choice forward instead of stranding it.
+			const row = await db.transaction(async (tx) => {
+				const prior = await pairHistory(tx, body.itemSku, body.vendorId);
+				const inherited = prior.some((p) => p.isPreferred);
+				const [inserted] = await tx
+					.insert(quotes)
+					.values({ ...body, isPreferred: body.isPreferred || inherited })
+					.returning();
+				if (prior.length) {
+					await tx
+						.update(quotes)
+						.set({ isPreferred: false })
+						.where(
+							and(
+								eq(quotes.itemSku, body.itemSku),
+								eq(quotes.vendorId, body.vendorId),
+								ne(quotes.id, inserted.id)
+							)
+						);
+				}
+				return inserted;
+			});
 			return c.json(quoteDto(row), 201);
 		}
 	);
@@ -480,18 +530,45 @@ export function createApi(db: DabomDb) {
 			method: 'patch',
 			path: '/quotes/{id}',
 			tags: ['Quotes'],
-			summary: 'Patch a quote',
+			summary: 'Patch a quote (isPreferred, inStock, notes only — quotes are append-only)',
 			request: { params: QuoteParam, body: json(QuotePatchSchema, 'Patch') },
-			responses: { 200: json(QuoteSchema, 'Updated'), ...err(404, 'Missing') }
+			responses: {
+				200: json(QuoteSchema, 'Updated'),
+				...err(404, 'Missing'),
+				...err(422, 'Immutable field, or preferring a superseded row')
+			}
 		}),
 		async (c) => {
 			const { id } = c.req.valid('param');
-			const [row] = await db
-				.update(quotes)
-				.set(c.req.valid('json'))
-				.where(eq(quotes.id, id))
-				.returning();
-			if (!row) throw new HttpError(404, `Quote ${id} not found`);
+			const patch = c.req.valid('json');
+			const existing = await db.query.quotes.findFirst({ where: eq(quotes.id, id) });
+			if (!existing) throw new HttpError(404, `Quote ${id} not found`);
+			if (Object.keys(patch).length === 0) return c.json(quoteDto(existing));
+
+			if (patch.isPreferred === true) {
+				// isPreferred is a vendor choice carried by the row that is
+				// current for that vendor. Letting a superseded row hold it
+				// would hide the flag from the roll-up.
+				const history = await pairHistory(db, existing.itemSku, existing.vendorId);
+				if (history[0]?.id !== id) {
+					throw new HttpError(
+						422,
+						`Quote ${id} is superseded for ${existing.itemSku} / ${existing.vendorId}; prefer the current row ${history[0]?.id}`
+					);
+				}
+				await db
+					.update(quotes)
+					.set({ isPreferred: false })
+					.where(
+						and(
+							eq(quotes.itemSku, existing.itemSku),
+							eq(quotes.vendorId, existing.vendorId),
+							ne(quotes.id, id)
+						)
+					);
+			}
+
+			const [row] = await db.update(quotes).set(patch).where(eq(quotes.id, id)).returning();
 			return c.json(quoteDto(row));
 		}
 	);
@@ -501,8 +578,28 @@ export function createApi(db: DabomDb) {
 		info: {
 			title: 'daBOM',
 			version: '0.1.0',
-			description:
-				'Bill of materials for the All Systems Go AI camera. Every item has a BOM (leaves are empty). Source of truth is this REST API; the SvelteKit UI is a client. Canonical discovery: /.well-known/openapi.json'
+			description: [
+				'Bill of materials for the All Systems Go AI camera. Every item has a BOM (leaves are empty).',
+				'Source of truth is this REST API; the SvelteKit UI is a client.',
+				'Canonical discovery: /.well-known/openapi.json',
+				'',
+				'**Price access ladder.** A refresh tries a distributor API (Digi-Key, Mouser, Arrow) first,',
+				'then a crawl of the public product page, then a headed browser session so a human can clear',
+				'a login wall. A fetch that cannot complete inserts no quote row: a priceless `api`, `crawl`',
+				'or `headed` POST is rejected 422 rather than recorded as a failure.',
+				'',
+				'**Quotes are append-only.** POST /quotes never deletes history. A new row for the same',
+				'(item, vendor) supersedes the previous one: it inherits `isPreferred` and clears the flag',
+				'on the rows it replaces. PATCH may change only `isPreferred`, `inStock` and `notes`;',
+				'`priceCents`, `url`, `method` and `checkedAt` are immutable, and a correction is a new row',
+				'with method `manual`.',
+				'',
+				'**Roll-up.** Within a vendor, the best method wins, then the newest: `api` > `headed` >',
+				'`crawl` > `seed` > `manual`, so a Sep 1 API price beats a Sep 8 crawl of the same page.',
+				'Across vendors, the preferred vendor wins if its chosen row is priced, otherwise the same',
+				'method rank then newest. Priceless rows never contribute. `asOf` on a roll-up is the oldest',
+				'`checkedAt` behind the total.'
+			].join('\n')
 		},
 		servers: [{ url: '/api/v1', description: 'Versioned REST' }],
 		externalDocs: {

@@ -30,14 +30,70 @@ export function isLeaf(item: { floor: string }) {
 	return item.floor !== 'assemble';
 }
 
-export function pickQuote<T extends { isPreferred: boolean; priceCents: number | null }>(
-	rows: T[]
-) {
-	return (
-		rows.find((q) => q.isPreferred && q.priceCents != null) ??
-		rows.find((q) => q.priceCents != null) ??
-		null
-	);
+export type QuoteRow = {
+	vendorId: string;
+	isPreferred: boolean;
+	priceCents: number | null;
+	method: string;
+	checkedAt: string | null;
+	createdAt: Date | string;
+};
+
+const METHOD_RANK: Record<string, number> = {
+	api: 0,
+	headed: 1,
+	crawl: 2,
+	seed: 3,
+	manual: 4
+};
+
+function methodRank(method: string) {
+	return METHOD_RANK[method] ?? METHOD_RANK.manual;
+}
+
+/** Newest first. A row with no `checkedAt` is undated, so it sorts last. */
+function newestFirst(a: QuoteRow, b: QuoteRow) {
+	if (a.checkedAt !== b.checkedAt) {
+		if (a.checkedAt == null) return 1;
+		if (b.checkedAt == null) return -1;
+		return a.checkedAt < b.checkedAt ? 1 : -1;
+	}
+	return String(b.createdAt).localeCompare(String(a.createdAt));
+}
+
+function bestForVendor(a: QuoteRow, b: QuoteRow) {
+	const rank = methodRank(a.method) - methodRank(b.method);
+	return rank !== 0 ? rank : newestFirst(a, b);
+}
+
+/**
+ * The roll-up rule, and the only place it lives.
+ *
+ * Within a vendor: best method rank, then newest. Not "latest row", because
+ * a Sep 1 `api` price is the vendor speaking and a Sep 8 `crawl` of the same
+ * page is us guessing.
+ *
+ * Across vendors: the preferred vendor if it has a priced row, else best
+ * method rank, then newest, then vendor id so the answer never depends on
+ * row order. Priceless rows never win — a failed fetch or an unanswered
+ * "quote with the carrier" is not a price.
+ */
+export function pickQuote<T extends QuoteRow>(rows: T[]) {
+	const priced = rows.filter((q) => q.priceCents != null);
+	if (priced.length === 0) return null;
+
+	const preferredVendors = new Set(rows.filter((q) => q.isPreferred).map((q) => q.vendorId));
+
+	const byVendor = new Map<string, T>();
+	for (const row of priced) {
+		const held = byVendor.get(row.vendorId);
+		if (!held || bestForVendor(row, held) < 0) byVendor.set(row.vendorId, row);
+	}
+
+	const chosen = [...byVendor.values()];
+	const preferred = chosen.filter((q) => preferredVendors.has(q.vendorId));
+	const pool = preferred.length ? preferred : chosen;
+	return pool.sort((a, b) => bestForVendor(a, b) || a.vendorId.localeCompare(b.vendorId))[0];
 }
 
 export async function wouldCycle(db: DabomDb, parentSku: string, childSku: string) {
@@ -83,6 +139,7 @@ export type BomLineView = {
 		mpn: string | null;
 	};
 	unitPriceCents: number | null;
+	unitPriceCheckedAt: string | null;
 	extendedCents: number | null;
 };
 
@@ -111,7 +168,8 @@ export async function listBom(db: DabomDb, parentSku: string): Promise<BomLineVi
 	}
 
 	return rows.map(({ line, child: c }) => {
-		const unitPriceCents = pickQuote(bySku.get(c.sku) ?? [])?.priceCents ?? null;
+		const quote = pickQuote(bySku.get(c.sku) ?? []);
+		const unitPriceCents = quote?.priceCents ?? null;
 		const extendedCents = unitPriceCents == null ? null : unitPriceCents * line.qty;
 		return {
 			id: line.id,
@@ -134,6 +192,7 @@ export async function listBom(db: DabomDb, parentSku: string): Promise<BomLineVi
 				mpn: c.mpn
 			},
 			unitPriceCents,
+			unitPriceCheckedAt: quote?.checkedAt ?? null,
 			extendedCents
 		};
 	});
@@ -164,6 +223,13 @@ export type Rollup = {
 	knownRequiredCents: number;
 	knownOptionalCents: number;
 	missingQuotes: string[];
+	/**
+	 * Oldest `checkedAt` among the quotes this total is built from, or null if
+	 * none of them carry a date. A method rank can keep a March `api` price
+	 * ahead of a September crawl forever; `asOf` is what stops that being a
+	 * silent lie.
+	 */
+	asOf: string | null;
 	massG: number | null;
 	wattsTypical: number | null;
 	knownMassG: number;
@@ -185,6 +251,7 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 	let watts = 0;
 	let wattsUnknown = false;
 	const leafSkus = new Set<string>();
+	let asOf: string | null = null;
 
 	const itemCache = new Map<string, Awaited<ReturnType<typeof getItemOrThrow>>>();
 	itemCache.set(root.sku, root);
@@ -199,6 +266,7 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 
 	if (exploded.length === 0) {
 		const q = pickQuote(root.quotes);
+		const rootAsOf = q?.checkedAt ?? null;
 		const leaf = q?.priceCents ?? 0;
 		return {
 			sku: rootSku,
@@ -207,6 +275,7 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 			knownRequiredCents: q?.priceCents == null ? 0 : leaf,
 			knownOptionalCents: 0,
 			missingQuotes: q?.priceCents == null ? [rootSku] : [],
+			asOf: rootAsOf,
 			massG: root.massG,
 			wattsTypical: root.wattsTypical,
 			knownMassG: root.massG ?? 0,
@@ -230,6 +299,8 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 			} else {
 				required += price * row.qtyRollup;
 			}
+			const dated = row.unitPriceCheckedAt;
+			if (price != null && dated != null && (asOf == null || dated < asOf)) asOf = dated;
 			if (child.massG == null) massUnknown = true;
 			else mass += child.massG * row.qtyRollup;
 			if (child.wattsTypical == null) wattsUnknown = true;
@@ -244,6 +315,7 @@ export async function rollup(db: DabomDb, rootSku: string): Promise<Rollup> {
 		knownRequiredCents: required,
 		knownOptionalCents: optional,
 		missingQuotes: [...missing],
+		asOf,
 		massG: massUnknown ? null : mass,
 		wattsTypical: wattsUnknown ? null : watts,
 		knownMassG: mass,

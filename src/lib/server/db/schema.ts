@@ -37,6 +37,14 @@ export const itemStatuses = ['preferred', 'candidate', 'placeholder', 'do-not-bu
  */
 export const itemFloors = ['buy', 'assemble', 'foundry'] as const;
 
+/**
+ * How a quote was obtained. Also the roll-up rank, best first: an `api`
+ * number outranks a later `crawl` of the same vendor's page, because the
+ * feed is the vendor speaking and the crawl is us guessing.
+ */
+export const quoteMethods = ['api', 'headed', 'crawl', 'seed', 'manual'] as const;
+export type QuoteMethod = (typeof quoteMethods)[number];
+
 export const items = pgTable(
 	'items',
 	{
@@ -89,12 +97,21 @@ export const quotes = pgTable(
 		priceCents: integer('price_cents'),
 		currency: text('currency').notNull().default('USD'),
 		url: text('url'),
+		method: text('method').notNull().default('manual'),
 		checkedAt: date('checked_at'),
 		inStock: boolean('in_stock'),
 		isPreferred: boolean('is_preferred').notNull().default(false),
-		notes: text('notes')
+		notes: text('notes'),
+		// Quotes are append-only observations. `checkedAt` is the vendor's
+		// date and may be null on seed/manual rows, so insert order is what
+		// makes "latest for this (item, vendor)" decidable.
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 	},
-	(t) => [index('quotes_item_idx').on(t.itemSku), index('quotes_vendor_idx').on(t.vendorId)]
+	(t) => [
+		index('quotes_item_idx').on(t.itemSku),
+		index('quotes_vendor_idx').on(t.vendorId),
+		index('quotes_item_vendor_idx').on(t.itemSku, t.vendorId)
+	]
 );
 
 export const bomLines = pgTable(

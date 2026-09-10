@@ -34,6 +34,17 @@ describe('daBOM API', () => {
 		expect(spec.openapi).toMatch(/^3/);
 		expect(spec.info.title).toBe('daBOM');
 		expect(spec.paths['/items/{sku}/bom']).toBeTruthy();
+		// The price-access ladder and the append-only rule are part of the
+		// contract, so they ship in the document a client actually reads.
+		expect(spec.info.description).toMatch(/Price access ladder/);
+		expect(spec.info.description).toMatch(/append-only/i);
+		expect(spec.components.schemas.Quote.properties.method.enum).toEqual([
+			'api',
+			'headed',
+			'crawl',
+			'seed',
+			'manual'
+		]);
 
 		const root = createRoot(app);
 		const wellKnown = await root.request('/.well-known/openapi.json');
@@ -203,5 +214,164 @@ describe('daBOM API', () => {
 		expect(roll.missingQuotes).not.toContain('fake-die');
 
 		await db.delete(bomLines).where(eq(bomLines.parentSku, 't4000-som'));
+	});
+
+	// --- add-price-access -------------------------------------------------
+	// These run last on purpose: they append quotes to seeded SKUs, and the
+	// roll-up assertions above are written against the seeded numbers.
+
+	const post = (path: string, body: unknown) =>
+		app.request(path, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+	const patch = (path: string, body: unknown) =>
+		app.request(path, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+
+	it('backfills a method on every seeded quote', async () => {
+		const som = await (await app.request('/items/t4000-som')).json();
+		expect(som.quotes).toHaveLength(1);
+		expect(som.quotes[0].method).toBe('seed');
+
+		// Priceless catalog rows are a human "ask them", not a fetch.
+		const brick = await (await app.request('/items/cti-msg103')).json();
+		expect(brick.quotes[0].method).toBe('manual');
+		expect(brick.quotes[0].priceCents).toBeNull();
+	});
+
+	it('refuses a fetched quote with no price and no date', async () => {
+		const priceless = await post('/quotes', {
+			itemSku: 'cti-msg103',
+			vendorId: 'cti',
+			method: 'crawl',
+			checkedAt: '2026-09-09',
+			priceCents: null
+		});
+		expect(priceless.status).toBe(422);
+
+		const undated = await post('/quotes', {
+			itemSku: 'cti-msg103',
+			vendorId: 'cti',
+			method: 'api',
+			priceCents: 25000
+		});
+		expect(undated.status).toBe(422);
+
+		const brick = await (await app.request('/items/cti-msg103')).json();
+		expect(brick.quotes).toHaveLength(1);
+	});
+
+	it('keeps the first quote and moves preferred to the refresh', async () => {
+		const before = await (await app.request('/items/t4000-som')).json();
+		const seedQuote = before.quotes[0];
+		expect(seedQuote.isPreferred).toBe(true);
+
+		const res = await post('/quotes', {
+			itemSku: 't4000-som',
+			vendorId: 'arrow',
+			method: 'api',
+			priceCents: 249900,
+			checkedAt: '2026-09-09',
+			url: 'https://www.arrow.com/en/products/900-13834-0000-000/nvidia'
+		});
+		expect(res.status).toBe(201);
+		const fresh = await res.json();
+		expect(fresh.method).toBe('api');
+		expect(fresh.isPreferred).toBe(true);
+
+		const after = await (await app.request('/items/t4000-som')).json();
+		expect(after.quotes).toHaveLength(2);
+		const stale = after.quotes.find((q: { id: string }) => q.id === seedQuote.id);
+		expect(stale.priceCents).toBe(seedQuote.priceCents);
+		expect(stale.isPreferred).toBe(false);
+
+		const roll = await (await app.request('/items/t4000-som/rollup')).json();
+		expect(roll.requiredCents).toBe(249900);
+		expect(roll.asOf).toBe('2026-09-09');
+	});
+
+	it('prefers an api price over a later crawl of the same page', async () => {
+		expect(
+			(await post('/items', { sku: 'probe-sku', name: 'Probe', kind: 'part', category: 'compute' }))
+				.status
+		).toBe(201);
+		await post('/quotes', {
+			itemSku: 'probe-sku',
+			vendorId: 'digikey',
+			method: 'api',
+			priceCents: 100000,
+			checkedAt: '2026-09-01'
+		});
+		await post('/quotes', {
+			itemSku: 'probe-sku',
+			vendorId: 'digikey',
+			method: 'crawl',
+			priceCents: 200000,
+			checkedAt: '2026-09-08'
+		});
+
+		const item = await (await app.request('/items/probe-sku')).json();
+		expect(item.quotes).toHaveLength(2);
+
+		const roll = await (await app.request('/items/probe-sku/rollup')).json();
+		expect(roll.requiredCents).toBe(100000);
+		expect(roll.asOf).toBe('2026-09-01');
+	});
+
+	it('falls past a preferred vendor whose chosen row has no price', async () => {
+		await post('/quotes', {
+			itemSku: 'cti-msg103',
+			vendorId: 'wdl',
+			method: 'crawl',
+			priceCents: 31000,
+			checkedAt: '2026-09-09'
+		});
+		const roll = await (await app.request('/items/cti-msg103/rollup')).json();
+		expect(roll.requiredCents).toBe(31000);
+		expect(roll.missingQuotes).toEqual([]);
+	});
+
+	it('refuses to rewrite price, url, method or date through PATCH', async () => {
+		const item = await (await app.request('/items/probe-sku')).json();
+		const api = item.quotes.find((q: { method: string }) => q.method === 'api');
+
+		for (const body of [
+			{ priceCents: 1 },
+			{ url: 'https://example.invalid' },
+			{ method: 'manual' },
+			{ checkedAt: '2026-01-01' }
+		]) {
+			const res = await patch(`/quotes/${api.id}`, body);
+			expect(res.status).toBe(422);
+		}
+
+		const still = await (await app.request('/items/probe-sku')).json();
+		const same = still.quotes.find((q: { id: string }) => q.id === api.id);
+		expect(same.priceCents).toBe(100000);
+		expect(same.method).toBe('api');
+		expect(same.checkedAt).toBe('2026-09-01');
+
+		// The fields a quote may still change.
+		const ok = await patch(`/quotes/${api.id}`, { inStock: false, notes: 'backorder' });
+		expect(ok.status).toBe(200);
+		expect((await ok.json()).notes).toBe('backorder');
+	});
+
+	it('refuses to prefer a superseded row', async () => {
+		const item = await (await app.request('/items/t4000-som')).json();
+		const stale = item.quotes.find((q: { method: string }) => q.method === 'seed');
+		const current = item.quotes.find((q: { method: string }) => q.method === 'api');
+
+		const bad = await patch(`/quotes/${stale.id}`, { isPreferred: true });
+		expect(bad.status).toBe(422);
+
+		const good = await patch(`/quotes/${current.id}`, { isPreferred: true });
+		expect(good.status).toBe(200);
+		expect((await good.json()).isPreferred).toBe(true);
 	});
 });

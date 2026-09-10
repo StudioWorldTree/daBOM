@@ -46,7 +46,11 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 				}
 			});
 		if (quote) {
-			await db.insert(quotes).values({ ...quote, itemSku: item.sku });
+			// Mirrors migration 0002. The catalog carries no method: a priced
+			// catalog row is where a number came from (`seed`); a priceless one
+			// is a human "ask them for a quote" note (`manual`).
+			const method = quote.method ?? (quote.priceCents == null ? 'manual' : 'seed');
+			await db.insert(quotes).values({ ...quote, method, itemSku: item.sku });
 		}
 	}
 

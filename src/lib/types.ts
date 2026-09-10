@@ -5,6 +5,7 @@ export type Quote = {
 	priceCents: number | null;
 	currency: string;
 	url: string | null;
+	method: 'api' | 'headed' | 'crawl' | 'seed' | 'manual';
 	checkedAt: string | null;
 	inStock: boolean | null;
 	isPreferred: boolean;
@@ -55,6 +56,7 @@ export type BomLine = {
 		mpn: string | null;
 	};
 	unitPriceCents: number | null;
+	unitPriceCheckedAt: string | null;
 	extendedCents: number | null;
 	path?: string[];
 	qtyEach?: number;
@@ -74,6 +76,7 @@ export type Rollup = {
 	knownRequiredCents: number;
 	knownOptionalCents: number;
 	missingQuotes: string[];
+	asOf: string | null;
 	massG: number | null;
 	wattsTypical: number | null;
 	knownMassG: number;

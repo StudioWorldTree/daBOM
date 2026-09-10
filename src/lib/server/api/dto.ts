@@ -3,6 +3,7 @@ import {
 	itemFloors,
 	itemKinds,
 	itemStatuses,
+	quoteMethods,
 	type Item,
 	type Quote,
 	type Vendor
@@ -52,6 +53,7 @@ export function quoteDto(row: Quote) {
 		priceCents: row.priceCents,
 		currency: row.currency,
 		url: row.url,
+		method: asUnion(row.method, quoteMethods),
 		checkedAt: row.checkedAt,
 		inStock: row.inStock,
 		isPreferred: row.isPreferred,

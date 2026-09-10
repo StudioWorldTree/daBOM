@@ -24,6 +24,11 @@ export const ItemCategory = z.enum([
 	'kit'
 ]);
 export const ItemStatus = z.enum(['preferred', 'candidate', 'placeholder', 'do-not-buy']);
+export const QuoteMethod = z.enum(['api', 'headed', 'crawl', 'seed', 'manual']).openapi({
+	description:
+		'How the quote was obtained, best first. Roll-up ranks api > headed > crawl > seed > manual, then newest.',
+	example: 'api'
+});
 
 export const ErrorSchema = z
 	.object({
@@ -40,6 +45,7 @@ export const QuoteSchema = z
 		priceCents: z.number().int().nullable(),
 		currency: z.string(),
 		url: z.string().nullable(),
+		method: QuoteMethod,
 		checkedAt: z.string().nullable(),
 		inStock: z.boolean().nullable(),
 		isPreferred: z.boolean(),
@@ -137,6 +143,7 @@ export const BomLineSchema = z
 		sortOrder: z.number().int(),
 		child: ChildRefSchema,
 		unitPriceCents: z.number().int().nullable(),
+		unitPriceCheckedAt: z.string().nullable(),
 		extendedCents: z.number().int().nullable()
 	})
 	.openapi('BomLine');
@@ -212,6 +219,10 @@ export const RollupSchema = z
 		knownRequiredCents: z.number().int(),
 		knownOptionalCents: z.number().int(),
 		missingQuotes: z.array(z.string()),
+		asOf: z.string().nullable().openapi({
+			description: 'Oldest checkedAt among the quotes behind this total. Null if none are dated.',
+			example: '2026-09-01'
+		}),
 		massG: z.number().int().nullable(),
 		wattsTypical: z.number().int().nullable(),
 		knownMassG: z.number().int(),
@@ -262,6 +273,7 @@ export const QuoteCreateSchema = z
 		priceCents: z.number().int().nullable().optional(),
 		currency: z.string().default('USD'),
 		url: z.string().nullable().optional(),
+		method: QuoteMethod.default('manual'),
 		checkedAt: z.string().nullable().optional(),
 		inStock: z.boolean().nullable().optional(),
 		isPreferred: z.boolean().default(false),
@@ -269,8 +281,18 @@ export const QuoteCreateSchema = z
 	})
 	.openapi('QuoteCreate');
 
-export const QuotePatchSchema = QuoteCreateSchema.partial()
-	.omit({ itemSku: true })
+/**
+ * Quotes are append-only. Price, url, method and checkedAt are what the
+ * vendor said at a moment; a correction is a new row with method `manual`,
+ * not a rewrite. Strict, so a PATCH carrying `priceCents` is 422 rather
+ * than a silently dropped field.
+ */
+export const QuotePatchSchema = z
+	.strictObject({
+		isPreferred: z.boolean().optional(),
+		inStock: z.boolean().nullable().optional(),
+		notes: z.string().nullable().optional()
+	})
 	.openapi('QuotePatch');
 
 export const LineId = z
