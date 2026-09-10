@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-api-advise",
+  "node_id": "add-ingest-api-advise",
+  "capability": "bom-ingest",
+  "change_id": "add-ingest-api",
+  "goal": "Advise add-ingest-api. Blind pass then verdict. Write openspec/changes/add-ingest-api/reviews/2026-09-09-advise.md. You are Fable 5.1, other-family reader. Author is Grok. Do not implement. Do not copy a verdict from another change.",
+  "non_goals": [
+    "Implement POST /ingest",
+    "Fold",
+    "Open design.md or tasks.md before the 10-line independent take",
+    "Repo skills",
+    "PDF parsing"
+  ],
+  "anchors": [
+    {
+      "symbol": "src/lib/server/db/schema.ts:48-61",
+      "invariant": "items.sku is PK; manufacturer and mpn are nullable; floor defaults buy; no ingest table"
+    },
+    {
+      "symbol": "src/lib/server/api/app.ts:133-151",
+      "invariant": "POST /items requires a client-supplied kebab sku; existing SKU is 409; no mint"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:348-366",
+      "invariant": "addBomLine 409 unless parent floor is assemble"
+    },
+    {
+      "symbol": "ARCHITECTURE.md:ADR-002",
+      "invariant": "Ingest mints from manufacturer+MPN or name; collision rule not decided there"
+    }
+  ],
+  "acceptance": {
+    "kind": "contrast",
+    "if_true": "Review file exists with ADVISE accept or send-back, READER fable-5.1-arch-review, SPAWN dir; write-through vs draft and identity collision are pinned or send-back names the hole.",
+    "if_false": "No review file, or ADVISE without READER, or a draft store is accepted as the ingest path."
+  },
+  "out_of_scope": [
+    { "item": "Repo ingest skills", "tracked_as": "add-ingest-skills" },
+    { "item": "Catalog floor retag", "tracked_as": "add-floor-seed" },
+    { "item": "Quote refresh", "tracked_as": "add-price-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/changes/add-ingest-api/reviews/",
+      "openspec/changes/add-ingest-api/tasks.md"
+    ],
+    "do_not": ["fold", "act", "implement product code"]
+  },
+  "inherited": [
+    "Why: Agents ingesting a shopping brief or datasheet must write a nested BOM through REST. There is no draft store and no skill-side SQL. Without POST /ingest, every SKU is hand-authored.",
+    "Cited: src/lib/server/db/schema.ts:48-61 items sku PK, manufacturer, mpn, floor default buy.",
+    "Cited: src/lib/server/api/app.ts:133-151 POST /items requires sku, 409 if exists.",
+    "Cited: src/lib/server/bom.ts:348-366 addBomLine 409 unless parent is assemble.",
+    "Living spec stub: openspec/specs/bom-ingest/spec.md. Delta: openspec/changes/add-ingest-api/specs/bom-ingest/spec.md — after the 10-line take.",
+    "LEARNINGS: DEFAULT buy would explode seeded kits (add-compose-schema). Changing seeded PKs is a migration, not a retag."
+  ],
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "lean",
+  "surface": "skill-host",
+  "role": "reader",
+  "assignee": {
+    "id": "agt-fable-arch-review",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "fable-5.1",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-fable-arch-review" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
