@@ -17,3 +17,7 @@
 - [x] Tree file before POST (review artifact; POST is the commit)
 - [x] Candidates + selection, not every PN heading as a BOM line
 - [x] Fixture is whole SHOPPING.md; assert the rejected dev kit is absent
+      Reader-added (re-advise 2026-09-10, fable-5.1-arch-review):
+
+- [ ] Tests live under `skills/**` (add to vitest include). No helper under
+      `src/lib/skills/`; the delta forbids a parser under `src/`
