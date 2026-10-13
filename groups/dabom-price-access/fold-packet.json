@@ -1,0 +1,71 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-price-access-fold",
+  "node_id": "dabom-price-access",
+  "capability": "bom-quotes",
+  "goal": "Fold add-price-access into living specs and archive it. Apply deltas from openspec/changes/add-price-access/specs/bom-quotes/spec.md onto openspec/specs/bom-quotes/spec.md. Lift implemented pins that are SHALLs in code but only in tasks (asOf on rollup DTO, PATCH isPreferred 422 on non-latest, preferred vendor only if priced) into the living spec. Amend ARCHITECTURE.md with the quotes/access-ladder ADR. One dated LEARNINGS line per surprise. git mv the change dir to openspec/changes/archive/2026-09-09-add-price-access. Commit on daBOM main and push. Close bead dabom-price-access after archive.",
+  "non_goals": [
+    "Vendor API adapters (add-price-skills)",
+    "POST /ingest (add-ingest-api)",
+    "Catalog floor retag (add-floor-seed)",
+    "Implement leftover product work"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-price-access/specs/bom-quotes/spec.md",
+      "invariant": "ADDED quote provenance, append-only, supersede preferred, method rank, access ladder"
+    },
+    {
+      "symbol": "openspec/changes/add-price-access/reviews/2026-09-09-re-advise.md",
+      "invariant": "Fable accept; pins A-D (roll-up order, priced preferred, PATCH stale 422, asOf)"
+    },
+    {
+      "symbol": "openspec/specs/bom-quotes/spec.md",
+      "invariant": "Living stub until this fold; replace with folded SHALLs"
+    }
+  ],
+  "acceptance": {
+    "kind": "none"
+  },
+  "out_of_scope": [
+    { "item": "Digi-Key/Mouser/Arrow HTTP", "tracked_as": "add-price-skills" },
+    { "item": "ingest endpoint", "tracked_as": "add-ingest-api" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/specs/bom-quotes/spec.md",
+      "openspec/changes/add-price-access",
+      "openspec/changes/archive",
+      "ARCHITECTURE.md",
+      "docs/LEARNINGS.md"
+    ],
+    "do_not": [
+      "act leftover tasks",
+      "vendor HTTP clients",
+      "ingest route",
+      "git add -A"
+    ]
+  },
+  "load_class": "intention-critical",
+  "rigor": "architecture",
+  "density": "standard",
+  "inherited": [
+    "Change id add-price-access. ACTIVE BUILD. All tasks [x]. Fable re-advise accept 2026-09-09-re-advise.md. Act landed 8ec1f2e; roll-up wording d7564f4. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. Persist with git -C that repo, never git add -A. Do not commit .spawns/ or groups/."
+  ],
+  "surface": "skill-host",
+  "role": "folder",
+  "assignee": {
+    "id": "agt-opus-5-fold",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5-fold" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

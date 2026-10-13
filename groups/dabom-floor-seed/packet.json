@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-floor-seed-act",
+  "node_id": "dabom-floor-seed",
+  "capability": "bom-compose",
+  "goal": "Implement add-floor-seed. Every seedItems row requires floor buy|assemble (no foundry). Eight parents in seedBoms are assemble; everyone else buy including resin shells. SeedItem type requires floor. Catalog-level test imports seedItems/seedBoms with no DB and fails today until tagged. seed.ts backfill stays; add floor to upsert set. GET t4000-som/bom stays empty; kit-prod still explodes. Check off openspec/changes/add-floor-seed/tasks.md.",
+  "non_goals": [
+    "POST /ingest",
+    "Changing seeded SKU strings",
+    "Foundry-level breakdowns",
+    "New migration"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-floor-seed/specs/bom-compose/spec.md",
+      "invariant": "required floor on catalog; catalog-level test over seedItems/seedBoms"
+    },
+    {
+      "symbol": "openspec/changes/add-floor-seed/reviews/2026-09-09-re-advise.md",
+      "invariant": "Fable accept after send-back; crib must not stay silent behind backfill"
+    },
+    {
+      "symbol": "src/lib/server/db/catalog.ts",
+      "invariant": "seed items currently omit floor; backfill in seed.ts is the only tag"
+    }
+  ],
+  "acceptance": { "kind": "command", "command": "npm test" },
+  "out_of_scope": [
+    { "item": "ingest route", "tracked_as": "add-ingest-api" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "src/lib/server/db/catalog.ts",
+      "src/lib/server/db/seed.ts",
+      "src/lib/server/api/app.test.ts",
+      "openspec/changes/add-floor-seed/tasks.md"
+    ],
+    "do_not": ["fold", "ingest route", "new drizzle migration"]
+  },
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "explicit",
+  "inherited": [
+    "Change id add-floor-seed. ACTIVE BUILD. Fable re-advise accept 2026-09-09-re-advise.md. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. Edit constraints.paths and stop. Do not git add -A."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

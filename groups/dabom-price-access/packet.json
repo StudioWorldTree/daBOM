@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-price-access-act",
+  "node_id": "dabom-price-access",
+  "capability": "bom-quotes",
+  "goal": "Implement add-price-access. Quote method enum api|headed|crawl|seed|manual. Append-only: PATCH cannot change priceCents/url/method/checkedAt. Same (item, vendor) POST supersedes preferred. pickQuote: latest per vendor, preferred vendor, else method rank api>headed>crawl>seed>manual then newest. Seed backfill method. OpenAPI + well-known still serve. Check off openspec/changes/add-price-access/tasks.md. Tests as in that file. Do not implement Digi-Key clients.",
+  "non_goals": [
+    "Vendor API adapters",
+    "Firecrawl/Playwright fetch loop",
+    "Item floor (already landed)",
+    "POST /ingest"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-price-access/specs/bom-quotes/spec.md",
+      "invariant": "provenance, append-only PATCH, supersede preferred, method rank, no priceless fail rows"
+    },
+    {
+      "symbol": "openspec/changes/add-price-access/reviews/2026-09-09-re-advise.md",
+      "invariant": "Fable accept after send-back amend"
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "command": "npm test"
+  },
+  "out_of_scope": [
+    { "item": "Digi-Key/Mouser/Arrow HTTP", "tracked_as": "add-price-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "src/lib/server/db/schema.ts",
+      "src/lib/server/db/seed.ts",
+      "src/lib/server/db/catalog.ts",
+      "src/lib/server/api/schemas.ts",
+      "src/lib/server/api/dto.ts",
+      "src/lib/server/api/app.ts",
+      "src/lib/server/bom.ts",
+      "src/lib/types.ts",
+      "src/lib/server/api/app.test.ts",
+      "drizzle/",
+      "openspec/changes/add-price-access/tasks.md"
+    ],
+    "do_not": ["fold", "vendor HTTP clients", "ingest route"]
+  },
+  "load_class": "intention-critical",
+  "rigor": "architecture",
+  "density": "standard",
+  "inherited": [
+    "Change id add-price-access. ACTIVE BUILD. Fable re-advise accept 2026-09-09-re-advise.md."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

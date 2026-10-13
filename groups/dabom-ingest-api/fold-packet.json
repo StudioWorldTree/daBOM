@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-api-fold",
+  "node_id": "dabom-ingest-api",
+  "capability": "bom-ingest",
+  "goal": "Fold add-ingest-api into living specs and archive it. Apply deltas from openspec/changes/add-ingest-api/specs/bom-ingest/spec.md onto openspec/specs/bom-ingest/spec.md. Amend ARCHITECTURE.md with mint+collision+write-through ADR. One dated LEARNINGS line per surprise. git mv the change dir to openspec/changes/archive/2026-09-09-add-ingest-api. Commit on daBOM main and push.",
+  "non_goals": [
+    "Repo skills (add-ingest-skills)",
+    "Catalog floor retag (add-floor-seed)",
+    "Implement leftover product work"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-ingest-api/specs/bom-ingest/spec.md",
+      "invariant": "JSON-only write-through, identity order, atomic rollback, 201 created|matched"
+    },
+    {
+      "symbol": "openspec/changes/add-ingest-api/reviews/2026-09-09-re-advise.md",
+      "invariant": "Fable accept; promotion is new nodes only"
+    },
+    {
+      "symbol": "openspec/specs/bom-ingest/spec.md",
+      "invariant": "Living stub until this fold"
+    }
+  ],
+  "acceptance": { "kind": "none" },
+  "out_of_scope": [
+    { "item": "markdown/PDF parsers", "tracked_as": "add-ingest-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "openspec/specs/bom-ingest/spec.md",
+      "openspec/changes/add-ingest-api",
+      "openspec/changes/archive",
+      "ARCHITECTURE.md",
+      "docs/LEARNINGS.md",
+      "openspec/AGENTS.md"
+    ],
+    "do_not": ["act leftover tasks", "git add -A", "catalog floor retag"]
+  },
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "standard",
+  "inherited": [
+    "Change id add-ingest-api. ACTIVE BUILD. All tasks [x]. Fable re-advise accept. Act landed 1f7dfdb. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. Persist with git -C that repo, never git add -A. Do not commit .spawns/ or groups/."
+  ],
+  "surface": "skill-host",
+  "role": "folder",
+  "assignee": {
+    "id": "agt-opus-5-fold",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5-fold" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

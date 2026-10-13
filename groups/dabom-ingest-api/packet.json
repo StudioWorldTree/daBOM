@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-api-act",
+  "node_id": "dabom-ingest-api",
+  "capability": "bom-ingest",
+  "goal": "Implement add-ingest-api. POST /api/v1/ingest JSON tree only; one transaction; non-2xx writes nothing. Identity: pair match, MPN-only, supplied sku, mint; different identity 409. Matched rows fill nulls only. New nodes with children become assemble; existing buy/foundry parent 409 (do not promote existing buy). 201 body sku+action created|matched+floor+line ids. Lines through addBomLine/wouldCycle with the transaction handle. Name-minted creates status placeholder. Check off openspec/changes/add-ingest-api/tasks.md including re-advise nits. Well-known spec lists the operation. Tests as in that file.",
+  "non_goals": [
+    "Markdown/PDF parsers",
+    "Numeric SKU suffixes",
+    "Catalog floor retag",
+    "Quote rows",
+    "Repo skills"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-ingest-api/specs/bom-ingest/spec.md",
+      "invariant": "write-through, JSON only, identity order, atomic rollback, floor 409 on existing buy"
+    },
+    {
+      "symbol": "openspec/changes/add-ingest-api/reviews/2026-09-09-re-advise.md",
+      "invariant": "Fable accept; strike 'or currently buy'; incoming null pair matches supplied sku; cycle via addBomLine"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:addBomLine",
+      "invariant": "409 unless parent assemble; wouldCycle; use these inside the ingest transaction"
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "command": "npm test"
+  },
+  "out_of_scope": [
+    { "item": "markdown/PDF parser", "tracked_as": "add-ingest-skills" },
+    { "item": "catalog floor retag", "tracked_as": "add-floor-seed" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "src/lib/server/api/schemas.ts",
+      "src/lib/server/api/dto.ts",
+      "src/lib/server/api/app.ts",
+      "src/lib/server/api/app.test.ts",
+      "src/lib/server/bom.ts",
+      "src/lib/types.ts",
+      "openspec/changes/add-ingest-api/tasks.md",
+      "openspec/changes/add-ingest-api/design.md",
+      "openspec/changes/add-ingest-api/specs/bom-ingest/spec.md"
+    ],
+    "do_not": ["fold", "markdown parser", "vendor HTTP clients", "seed floor retag"]
+  },
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "standard",
+  "inherited": [
+    "Change id add-ingest-api. ACTIVE BUILD. Fable re-advise accept 2026-09-09-re-advise.md. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. Edit constraints.paths and stop. Conductor persists. Do not git add -A. Do not add .spawns/ or groups/."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

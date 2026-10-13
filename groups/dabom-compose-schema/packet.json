@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-compose-schema-act",
+  "node_id": "dabom-compose-schema",
+  "capability": "bom-compose",
+  "goal": "Items have floor buy|assemble|foundry (default buy). Explode and roll-up recurse only assemble. POST bom line under buy/foundry is 409. OpenAPI Item includes floor. PGLite migration. Existing parents that already have BOM lines backfill to assemble so the crib still explodes. Check off owed boxes in openspec/changes/add-compose-schema/tasks.md.",
+  "non_goals": [
+    "POST /ingest",
+    "Quote method/ladder (add-price-access)",
+    "Repo skills",
+    "Renaming seeded SKUs"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-compose-schema/specs/bom-compose/spec.md",
+      "invariant": "floor on items; explode stops at buy/foundry; 409 hanging children on buy"
+    },
+    {
+      "symbol": "openspec/changes/add-compose-schema/reviews/2026-09-09-advise.md",
+      "invariant": "Fable accept: floor orthogonal to kind; replace kind===part in explode and rollup; named enum; floor not on bom_lines"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:explodeBom",
+      "invariant": "today walks kind !== part; must walk floor === assemble only"
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "command": "npm test"
+  },
+  "out_of_scope": [
+    { "item": "ingest endpoint", "tracked_as": "add-ingest-api" },
+    { "item": "full catalog floor tagging beyond backfill assemble for current parents", "tracked_as": "add-floor-seed" },
+    { "item": "quote provenance", "tracked_as": "add-price-access" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "src/lib/server/db/schema.ts",
+      "src/lib/server/db/seed.ts",
+      "src/lib/server/api/schemas.ts",
+      "src/lib/server/api/dto.ts",
+      "src/lib/server/api/app.ts",
+      "src/lib/server/bom.ts",
+      "src/lib/types.ts",
+      "src/lib/server/api/app.test.ts",
+      "drizzle/",
+      "openspec/changes/add-compose-schema/tasks.md"
+    ],
+    "do_not": ["fold", "ingest route", "quote method column"]
+  },
+  "load_class": "structure-clear",
+  "rigor": "architecture",
+  "density": "standard",
+  "inherited": [
+    "Change id add-compose-schema. ACTIVE BUILD. Fable accept 2026-09-09-advise.md."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

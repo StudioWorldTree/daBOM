@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-skills-act",
+  "node_id": "dabom-ingest-skills",
+  "capability": "ingest-skills",
+  "goal": "Implement add-ingest-skills. Skill skills/ingest-hardware/SKILL.md: candidates from markdown/pdf2md, tree composed from a selection (Cart T / MPN list / hand edit), write IngestRequest JSON file, human/agent reads it, then POST /api/v1/ingest. HTTP only. sku absent unless named. Tests under skills/** (add vitest include); grep skill dir for drizzle/data/dabom/pglite/$lib/server is zero. Fixture is whole ../AICamera/docs/SHOPPING.md: production kit has T4000 SOM + Rogue-T5, not AGX Developer Kit. One AGENTS.md line pointing at skills/. Check off openspec/changes/add-ingest-skills/tasks.md including the re-advise pin that tests live under skills/** not src/lib/skills/.",
+  "non_goals": [
+    "Quote refresh",
+    "Parser under src/",
+    "Skill-side SKU mint",
+    "Changing POST /ingest"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-ingest-skills/specs/ingest-skills/spec.md",
+      "invariant": "HTTP-only; tree file before POST; candidates plus selection; pdf2md"
+    },
+    {
+      "symbol": "openspec/changes/add-ingest-skills/reviews/2026-09-10-re-advise.md",
+      "invariant": "Fable accept; tests under skills/** not src/"
+    },
+    {
+      "symbol": "src/lib/server/api/app.ts:599",
+      "invariant": "POST /ingest JSON-only; markdown/PDF 415"
+    }
+  ],
+  "acceptance": { "kind": "command", "command": "npm test" },
+  "out_of_scope": [
+    { "item": "quote adapters", "tracked_as": "add-price-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "skills/ingest-hardware/",
+      "vite.config.ts",
+      "AGENTS.md",
+      "openspec/changes/add-ingest-skills/tasks.md"
+    ],
+    "do_not": ["fold", "quote skill", "parser under src/", "drizzle in the skill"]
+  },
+  "load_class": "structure-clear",
+  "rigor": "change",
+  "density": "standard",
+  "inherited": [
+    "Change id add-ingest-skills. ACTIVE BUILD. Fable re-advise accept 2026-09-10-re-advise.md. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. SHOPPING.md fixture is ../AICamera/docs/SHOPPING.md. Do not git add -A. Do not add .spawns/ or groups/."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

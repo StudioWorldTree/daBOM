@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-price-skills-act",
+  "node_id": "dabom-price-skills",
+  "capability": "price-skills",
+  "goal": "Implement add-price-skills. Skill skills/price-quote/SKILL.md: per vendor API (Digi-Key/Mouser/Arrow) then Firecrawl then headed Playwright. POST /api/v1/quotes with method api|crawl|headed, url, cents, checkedAt. HTTP only, no drizzle. API rung posts only on exact items.mpn match; null mpn skips API. Qty-1 unit price, tier in notes. Crawl URL from latest quote else Firecrawl search manufacturer+MPN on vendor domain. Failed fetch / login wall inserts nothing. Check off openspec/changes/add-price-skills/tasks.md including reader pins. Tests: mocked Arrow API writes method=api on t4000-som; login-wall mock inserts nothing.",
+  "non_goals": [
+    "Octopart/Nexar",
+    "Ingest skill",
+    "Changing quote schema",
+    "Daily sweep scheduler"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-price-skills/specs/price-skills/spec.md",
+      "invariant": "API then crawl then headed; POST /quotes; no PGLite"
+    },
+    {
+      "symbol": "openspec/changes/add-price-skills/reviews/2026-09-09-advise.md",
+      "invariant": "Fable accept; exact-MPN, qty-1, crawl URL pins"
+    },
+    {
+      "symbol": "src/lib/server/api/app.ts:477",
+      "invariant": "POST /quotes append-only; priceless fetched rows 422"
+    }
+  ],
+  "acceptance": { "kind": "command", "command": "npm test" },
+  "out_of_scope": [
+    { "item": "ingest skill", "tracked_as": "add-ingest-skills" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "skills/price-quote/",
+      "src/lib/server/api/app.test.ts",
+      "vite.config.ts",
+      "AGENTS.md",
+      "openspec/changes/add-price-skills/tasks.md"
+    ],
+    "do_not": ["fold", "ingest skill", "drizzle in the skill", "commit API keys"]
+  },
+  "load_class": "intention-critical",
+  "rigor": "change",
+  "density": "standard",
+  "inherited": [
+    "Change id add-price-skills. ACTIVE BUILD. Fable accept 2026-09-09-advise.md. Work in /Users/dukejones/work/ClientProjects/AllSystemsGo/daBOM on main. Secrets via env. Do not git add -A. Do not add .spawns/ or groups/."
+  ],
+  "surface": "skill-host",
+  "role": "worker",
+  "assignee": {
+    "id": "agt-opus-5",
+    "kind": "model",
+    "harness": "claude",
+    "interface": "opus-5",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-opus-5" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}
