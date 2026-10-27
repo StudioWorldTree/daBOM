@@ -5,6 +5,7 @@ import {
 	addBomLine,
 	deleteBomLine,
 	explodeBom,
+	exportBomCsv,
 	getItemOrThrow,
 	HttpError,
 	ingestTree,
@@ -16,6 +17,7 @@ import {
 	wouldCycle
 } from '../bom';
 import { bomLines, items, quotes, vendors, type DabomDb } from '../db';
+import { csvFilename } from '../bom-csv';
 import { itemDto, quoteDto, vendorDto } from './dto';
 import {
 	BomLineCreateSchema,
@@ -354,6 +356,33 @@ export function createApi(db: DabomDb) {
 			if (!line) throw new HttpError(404, `BOM line ${lineId} not found on ${sku}`);
 			await deleteBomLine(db, sku, lineId);
 			return c.json(line);
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/items/{sku}/bom.csv',
+			tags: ['BOM'],
+			summary: 'Download the exploded BOM as CSV',
+			description:
+				'One row per exploded line, quantities for one of this SKU. Prices are on buy rows only, in dollars, so a sum of ext_for_one_usd is the known leaf total. Optional lines are included. A leaf item is a single row.',
+			request: { params: SkuParam },
+			responses: {
+				200: {
+					description: 'CSV attachment',
+					content: { 'text/csv': { schema: { type: 'string' } } }
+				},
+				...err(404, 'Missing')
+			}
+		}),
+		async (c) => {
+			const { sku } = c.req.valid('param');
+			const csv = await exportBomCsv(db, sku);
+			return c.body(csv, 200, {
+				'content-type': 'text/csv; charset=utf-8',
+				'content-disposition': `attachment; filename="${csvFilename(sku)}"`
+			});
 		}
 	);
 

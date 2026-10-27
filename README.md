@@ -38,19 +38,20 @@ does not mint passwords.
 
 Prefix `/api/v1`. Every item has a BOM (leaves are empty arrays).
 
-| Method | Path | |
-|---|---|---|
-| GET | `/items` | `?q=&kind=&category=&status=` |
-| POST | `/items` | create (empty BOM) |
-| GET/PATCH/DELETE | `/items/{sku}` | |
-| GET | `/items/{sku}/bom` | `?explode=true` |
-| POST/PUT | `/items/{sku}/bom` | add line / replace |
-| PATCH/DELETE | `/items/{sku}/bom/{lineId}` | |
-| GET | `/items/{sku}/where-used` | |
-| GET | `/items/{sku}/rollup` | cost / mass / watts |
-| GET | `/kits` | `kind=kit` |
-| GET/POST | `/vendors` | |
-| GET/POST/PATCH | `/quotes` | prices in integer cents |
+| Method           | Path                        |                                  |
+| ---------------- | --------------------------- | -------------------------------- |
+| GET              | `/items`                    | `?q=&kind=&category=&status=`    |
+| POST             | `/items`                    | create (empty BOM)               |
+| GET/PATCH/DELETE | `/items/{sku}`              |                                  |
+| GET              | `/items/{sku}/bom`          | `?explode=true`                  |
+| GET              | `/items/{sku}/bom.csv`      | exploded BOM as a CSV attachment |
+| POST/PUT         | `/items/{sku}/bom`          | add line / replace               |
+| PATCH/DELETE     | `/items/{sku}/bom/{lineId}` |                                  |
+| GET              | `/items/{sku}/where-used`   |                                  |
+| GET              | `/items/{sku}/rollup`       | cost / mass / watts              |
+| GET              | `/kits`                     | `kind=kit`                       |
+| GET/POST         | `/vendors`                  |                                  |
+| GET/POST/PATCH   | `/quotes`                   | prices in integer cents          |
 
 Cycle detection on BOM writes. Delete is refused while the SKU is on a parent or still has children.
 

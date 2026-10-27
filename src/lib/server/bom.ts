@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { bomLines, items, quotes, type DabomDb } from './db';
+import { bomLinesToCsv, explodedToCsvLine, type CsvLine, type CsvQuote } from './bom-csv';
+import { bomLines, items, quotes, vendors, type DabomDb } from './db';
 
 /**
  * The handle a transaction callback hands back. Every read/write helper here
@@ -222,6 +223,72 @@ export async function explodeBom(db: Db, rootSku: string): Promise<ExplodedRow[]
 	}
 	await walk(rootSku, [rootSku], 1);
 	return out;
+}
+
+async function quotesForCsv(db: Db, skus: string[]): Promise<Map<string, CsvQuote>> {
+	const picked = new Map<string, CsvQuote>();
+	if (skus.length === 0) return picked;
+	const [qrows, vrows] = await Promise.all([
+		db.select().from(quotes).where(inArray(quotes.itemSku, skus)),
+		db.select().from(vendors)
+	]);
+	const vendorName = new Map(vrows.map((v) => [v.id, v.name]));
+	const bySku = new Map<string, typeof qrows>();
+	for (const q of qrows) {
+		const list = bySku.get(q.itemSku) ?? [];
+		list.push(q);
+		bySku.set(q.itemSku, list);
+	}
+	for (const sku of skus) {
+		const quote = pickQuote(bySku.get(sku) ?? []);
+		if (!quote) continue;
+		picked.set(sku, {
+			vendorName: vendorName.get(quote.vendorId) ?? quote.vendorId,
+			currency: quote.currency,
+			url: quote.url,
+			checkedAt: quote.checkedAt
+		});
+	}
+	return picked;
+}
+
+/**
+ * Exploded BOM as CSV, quantities for one of `sku`. A leaf with no children
+ * is one row, so a single part still has a file to send.
+ */
+export async function exportBomCsv(db: Db, sku: string): Promise<string> {
+	const root = await getItemOrThrow(db, sku);
+	const rows = await explodeBom(db, sku);
+	const skus = rows.length ? [...new Set(rows.map((row) => row.childSku))] : [sku];
+	const quoteBySku = await quotesForCsv(db, skus);
+	const lines: CsvLine[] = rows.length
+		? rows.map((row) => explodedToCsvLine(row, quoteBySku.get(row.childSku)))
+		: [
+				{
+					level: 0,
+					path: root.sku,
+					sku: root.sku,
+					name: root.name,
+					qty: 1,
+					qtyForOne: 1,
+					unit: 'ea',
+					role: '',
+					optional: false,
+					floor: root.floor,
+					kind: root.kind,
+					category: root.category,
+					status: root.status,
+					manufacturer: root.manufacturer,
+					mpn: root.mpn,
+					unitPriceCents: pickQuote(root.quotes ?? [])?.priceCents ?? null,
+					currency: quoteBySku.get(sku)?.currency ?? '',
+					vendor: quoteBySku.get(sku)?.vendorName ?? '',
+					productUrl: quoteBySku.get(sku)?.url ?? null,
+					priceChecked: quoteBySku.get(sku)?.checkedAt ?? null,
+					notes: root.notes
+				}
+			];
+	return bomLinesToCsv(lines);
 }
 
 export type Rollup = {

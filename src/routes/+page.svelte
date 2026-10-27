@@ -28,37 +28,40 @@
 
 	<section class="grid">
 		{#each data.cards as card (card.kit.sku)}
-			<a class="traveler kit" href="/items/{card.kit.sku}">
-				<div class="sku">{card.kit.sku}</div>
-				<h2>{card.kit.name}</h2>
-				<p>{card.kit.description}</p>
-				<dl>
-					<div>
-						<dt>Required</dt>
-						<dd>
-							{money(card.rollup?.requiredCents ?? card.rollup?.knownRequiredCents)}
-							{#if card.rollup?.requiredCents == null && card.rollup?.knownRequiredCents}
-								<span class="partial">+ quote</span>
-							{/if}
-						</dd>
-					</div>
-					<div>
-						<dt>Optional</dt>
-						<dd>{money(card.rollup?.optionalCents)}</dd>
-					</div>
-					<div>
-						<dt>Mass</dt>
-						<dd>{grams(card.rollup?.massG ?? card.rollup?.knownMassG)}</dd>
-					</div>
-					<div>
-						<dt>Watts</dt>
-						<dd>{watts(card.rollup?.wattsTypical ?? card.rollup?.knownWattsTypical)}</dd>
-					</div>
-				</dl>
-				{#if card.rollup?.missingQuotes.length}
-					<p class="miss">Missing quotes: {card.rollup.missingQuotes.join(', ')}</p>
-				{/if}
-			</a>
+			<article class="traveler kit">
+				<a class="kit-link" href="/items/{card.kit.sku}">
+					<div class="sku">{card.kit.sku}</div>
+					<h2>{card.kit.name}</h2>
+					<p>{card.kit.description}</p>
+					<dl>
+						<div>
+							<dt>Required</dt>
+							<dd>
+								{money(card.rollup?.requiredCents ?? card.rollup?.knownRequiredCents)}
+								{#if card.rollup?.requiredCents == null && card.rollup?.knownRequiredCents}
+									<span class="partial">+ quote</span>
+								{/if}
+							</dd>
+						</div>
+						<div>
+							<dt>Optional</dt>
+							<dd>{money(card.rollup?.optionalCents)}</dd>
+						</div>
+						<div>
+							<dt>Mass</dt>
+							<dd>{grams(card.rollup?.massG ?? card.rollup?.knownMassG)}</dd>
+						</div>
+						<div>
+							<dt>Watts</dt>
+							<dd>{watts(card.rollup?.wattsTypical ?? card.rollup?.knownWattsTypical)}</dd>
+						</div>
+					</dl>
+					{#if card.rollup?.missingQuotes.length}
+						<p class="miss">Missing quotes: {card.rollup.missingQuotes.join(', ')}</p>
+					{/if}
+				</a>
+				<a class="btn ghost csv" href="/api/v1/items/{card.kit.sku}/bom.csv">CSV</a>
+			</article>
 		{/each}
 	</section>
 </div>
@@ -103,10 +106,17 @@
 		gap: 1rem;
 	}
 
-	.kit {
+	.kit-link {
 		text-decoration: none;
 		color: inherit;
 		display: block;
+	}
+
+	.csv {
+		display: inline-flex;
+		align-items: center;
+		margin-top: 0.9rem;
+		text-decoration: none;
 	}
 
 	.kit h2 {

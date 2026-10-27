@@ -98,7 +98,10 @@
 					<dt>Watts</dt>
 					<dd>{watts(data.rollup.wattsTypical ?? data.rollup.knownWattsTypical)}</dd>
 				</div>
-				<div><dt>Parts</dt><dd>{data.rollup.partCount}</dd></div>
+				<div>
+					<dt>Parts</dt>
+					<dd>{data.rollup.partCount}</dd>
+				</div>
 			</dl>
 			{#if data.rollup.missingQuotes.length}
 				<p class="miss">No street price: {data.rollup.missingQuotes.join(', ')}</p>
@@ -107,8 +110,14 @@
 		<div class="traveler">
 			<h2>Envelope</h2>
 			<dl>
-				<div><dt>MPN</dt><dd>{data.item.mpn ?? '—'}</dd></div>
-				<div><dt>Maker</dt><dd>{data.item.manufacturer ?? '—'}</dd></div>
+				<div>
+					<dt>MPN</dt>
+					<dd>{data.item.mpn ?? '—'}</dd>
+				</div>
+				<div>
+					<dt>Maker</dt>
+					<dd>{data.item.manufacturer ?? '—'}</dd>
+				</div>
 				<div>
 					<dt>Size</dt>
 					<dd>
@@ -117,7 +126,10 @@
 							: '—'}
 					</dd>
 				</div>
-				<div><dt>Self mass</dt><dd>{grams(data.item.massG)}</dd></div>
+				<div>
+					<dt>Self mass</dt>
+					<dd>{grams(data.item.massG)}</dd>
+				</div>
 				<div>
 					<dt>Self watts</dt>
 					<dd>{watts(data.item.wattsTypical)} / max {watts(data.item.wattsMax)}</dd>
@@ -129,12 +141,12 @@
 	<section>
 		<div class="head">
 			<h2>BOM · {data.bom.lineCount} line{data.bom.lineCount === 1 ? '' : 's'}</h2>
-			<a
-				class="btn ghost"
-				href="/items/{data.item.sku}{data.explode ? '' : '?explode=true'}"
-			>
-				{data.explode ? 'One level' : 'Explode'}
-			</a>
+			<div class="actions">
+				<a class="btn ghost" href="/api/v1/items/{data.item.sku}/bom.csv">CSV</a>
+				<a class="btn ghost" href="/items/{data.item.sku}{data.explode ? '' : '?explode=true'}">
+					{data.explode ? 'One level' : 'Explode'}
+				</a>
+			</div>
 		</div>
 		{#if data.bom.lines.length === 0}
 			<p class="empty">Leaf. Empty BOM, as required.</p>
@@ -157,9 +169,13 @@
 									{#if data.explode}
 										{line.qtyRollup ?? line.qty}
 									{:else}
-										<button class="qty" type="button" onclick={() => bumpQty(line.id, line.qty - 1)}>-</button>
+										<button class="qty" type="button" onclick={() => bumpQty(line.id, line.qty - 1)}
+											>-</button
+										>
 										{line.qty}
-										<button class="qty" type="button" onclick={() => bumpQty(line.id, line.qty + 1)}>+</button>
+										<button class="qty" type="button" onclick={() => bumpQty(line.id, line.qty + 1)}
+											>+</button
+										>
 									{/if}
 									<span class="unit">{line.unit}</span>
 								</td>
@@ -172,7 +188,9 @@
 								<td>{money(line.extendedCents)}</td>
 								<td>
 									{#if !data.explode}
-										<button class="btn ghost" type="button" onclick={() => removeLine(line.id)}>Drop</button>
+										<button class="btn ghost" type="button" onclick={() => removeLine(line.id)}
+											>Drop</button
+										>
 									{/if}
 								</td>
 							</tr>
@@ -231,7 +249,8 @@
 						<a href="/items/{u.parentSku}">{u.parentName}</a>
 						<span class="sku">{u.parentSku}</span>
 						× {u.qty}
-						{#if u.role} · {u.role}{/if}
+						{#if u.role}
+							· {u.role}{/if}
 					</li>
 				{/each}
 			</ul>
@@ -246,8 +265,10 @@
 					<li>
 						<strong>{money(q.priceCents, q.currency)}</strong>
 						· {q.vendorId}
-						{#if q.isPreferred} · preferred{/if}
-						{#if q.checkedAt} · {q.checkedAt}{/if}
+						{#if q.isPreferred}
+							· preferred{/if}
+						{#if q.checkedAt}
+							· {q.checkedAt}{/if}
 						{#if q.notes}
 							<div class="who">{q.notes}</div>
 						{/if}
@@ -332,6 +353,11 @@
 		justify-content: space-between;
 		gap: 0.75rem;
 		margin: 1.5rem 0 0.6rem;
+	}
+
+	.actions {
+		display: flex;
+		gap: 0.4rem;
 	}
 
 	.empty {

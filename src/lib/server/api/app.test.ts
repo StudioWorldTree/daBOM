@@ -110,6 +110,36 @@ describe('daBOM API', () => {
 		}
 	});
 
+	it('downloads an exploded kit as CSV', async () => {
+		const res = await app.request('/items/kit-prod/bom.csv');
+		expect(res.status).toBe(200);
+		expect(res.headers.get('content-type')).toContain('text/csv');
+		expect(res.headers.get('content-disposition')).toContain('filename="kit-prod.csv"');
+		const text = (await res.text()).replace(/^\uFEFF/, '');
+		const [header, ...rows] = text.trim().split('\r\n');
+		expect(header?.split(',')).toContain('qty_for_one');
+		expect(header?.split(',')).toContain('ext_for_one_usd');
+		const cols = header?.split(',') ?? [];
+		const skuAt = cols.indexOf('sku');
+		const qtyAt = cols.indexOf('qty_for_one');
+		const extAt = cols.indexOf('ext_for_one_usd');
+		const floorAt = cols.indexOf('floor');
+		const turret = rows.find((row) => row.split(',')[skuAt] === 'rv1126b-turret');
+		expect(turret?.split(',')[qtyAt]).toBe('2');
+		const som = rows.find((row) => row.split(',')[skuAt] === 't4000-som');
+		expect(som?.split(',')[extAt]).toBe('2749.00');
+		const sandwich = rows.find((row) => row.split(',')[skuAt] === 'asm-thor-sandwich');
+		expect(sandwich?.split(',')[floorAt]).toBe('assemble');
+		expect(sandwich?.split(',')[extAt]).toBe('');
+
+		const leaf = await app.request('/items/t4000-som/bom.csv');
+		expect(leaf.status).toBe(200);
+		expect(await leaf.text()).toContain('t4000-som');
+
+		const missing = await app.request('/items/not-a-sku/bom.csv');
+		expect(missing.status).toBe(404);
+	});
+
 	it('returns an empty BOM for a leaf part', async () => {
 		const res = await app.request('/items/t4000-som/bom');
 		expect(res.status).toBe(200);
