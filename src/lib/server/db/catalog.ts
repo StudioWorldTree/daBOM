@@ -659,14 +659,25 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'nvme-1tb',
-		name: '1 TB NVMe',
+		name: 'Sandisk Optimus GX 7100 1 TB',
 		kind: 'part',
 		floor: 'buy',
 		category: 'storage',
-		status: 'placeholder',
-		description: 'Ring buffer on the carrier. AGX kit already ships one.',
+		status: 'preferred',
+		manufacturer: 'Sandisk',
+		mpn: 'SDSP71100TAN',
+		description:
+			'Ring on the Rogue M.2 2280. TLC BiCS, PCIe 4.0 x4. Successor to the WD_BLACK SN7100.',
 		source: CAR,
-		quote: { vendorId: 'tbd', priceCents: 8000, currency: 'USD', checkedAt: CHECKED, isPreferred: true }
+		quote: {
+			vendorId: 'tbd',
+			priceCents: 18000,
+			currency: 'USD',
+			url: 'https://www.amazon.com/dp/B0GK1M1N4V',
+			checkedAt: CHECKED,
+			isPreferred: true,
+			notes: 'Amazon new street. Sold and shipped by Elite100. Three left. Do not buy the used offer.'
+		}
 	},
 	{
 		sku: 'resin-shell-front',
