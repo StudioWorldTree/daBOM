@@ -529,9 +529,10 @@ export const seedItems: SeedItem[] = [
 		category: 'compute',
 		status: 'preferred',
 		manufacturer: 'Fanconn / Boardcon / EASY-EAI',
-		description: 'Sat software home. SDK, UART, Ethernet. Prefer B silicon.',
+		description:
+			'Optional bench seat. SDK and UART while writing a satellite. Cooke /i can be patched without this board.',
 		source: CAM,
-		notes: 'UART for /i and 1D ToF. This is why we own the board.',
+		notes: 'Not on the Cart T required buy. A whole camera dev board is not required just for those pins.',
 		quote: {
 			vendorId: 'tbd',
 			priceCents: 20000,
@@ -810,8 +811,21 @@ export const seedItems: SeedItem[] = [
 		floor: 'assemble',
 		category: 'kit',
 		status: 'preferred',
-		description: 'Preferred production stack. Live AI is HDMI/USB until a CSI/GMSL add-on. Master is BRAW + /i on PYXIS.',
+		description:
+			'Preferred production body and cinema camera. The satellite plant is kit-sat, optional, and off this required buy. Master is BRAW + /i on PYXIS.',
 		source: SRC
+	},
+	{
+		sku: 'kit-sat',
+		name: 'Optional satellites',
+		kind: 'kit',
+		floor: 'assemble',
+		category: 'kit',
+		status: 'preferred',
+		description:
+			'EVB, two encode mules, and the PoE switch that powers only those cameras. A separate buy from Cart T.',
+		source: SRC,
+		notes: 'Cooke /i can be patched without the EVB. This switch does not power Thor.'
 	},
 	{
 		sku: 'kit-cine',
@@ -820,7 +834,8 @@ export const seedItems: SeedItem[] = [
 		floor: 'assemble',
 		category: 'kit',
 		status: 'preferred',
-		description: 'Same as Cart T. PYXIS 6K PL is non-negotiable. Do not swap EF.',
+		description:
+			'Same body and cinema camera as Cart T. The satellite plant is optional. PYXIS 6K PL is non-negotiable. Do not swap EF.',
 		source: SRC
 	},
 	{
@@ -893,14 +908,13 @@ export const seedBoms: SeedBom[] = [
 	},
 	{
 		parentSku: 'kit-prod',
-		childSku: 'asm-sat-mule',
-		qty: 2,
-		role: 'sat-mule',
+		childSku: 'kit-sat',
+		qty: 1,
+		role: 'satellites',
+		optional: true,
 		sortOrder: 30,
-		notes: 'Encode mules this week.'
+		notes: 'Separate buy. Not in the Cart T required total.'
 	},
-	{ parentSku: 'kit-prod', childSku: 'rv1126b-evb', qty: 1, role: 'sat-sdk', sortOrder: 40 },
-	{ parentSku: 'kit-prod', childSku: 'poe-switch-at', qty: 1, role: 'plant', sortOrder: 50 },
 	{
 		parentSku: 'kit-prod',
 		childSku: 'hdmi-usb-capture',
@@ -920,9 +934,39 @@ export const seedBoms: SeedBom[] = [
 		sortOrder: 20,
 		notes: 'Non-negotiable. Mount is not swappable.'
 	},
-	{ parentSku: 'kit-cine', childSku: 'asm-sat-mule', qty: 2, role: 'sat-mule', sortOrder: 30 },
-	{ parentSku: 'kit-cine', childSku: 'rv1126b-evb', qty: 1, role: 'sat-sdk', sortOrder: 40 },
-	{ parentSku: 'kit-cine', childSku: 'poe-switch-at', qty: 1, role: 'plant', sortOrder: 50 },
+	{
+		parentSku: 'kit-cine',
+		childSku: 'kit-sat',
+		qty: 1,
+		role: 'satellites',
+		optional: true,
+		sortOrder: 30,
+		notes: 'Separate buy. Not in the Cart C required total.'
+	},
+	{
+		parentSku: 'kit-sat',
+		childSku: 'rv1126b-evb',
+		qty: 1,
+		role: 'sat-sdk',
+		sortOrder: 10,
+		notes: 'One optional way to get a UART while writing a satellite.'
+	},
+	{
+		parentSku: 'kit-sat',
+		childSku: 'asm-sat-mule',
+		qty: 2,
+		role: 'sat-mule',
+		sortOrder: 20,
+		notes: 'Encode mules. Not the shipped satellite.'
+	},
+	{
+		parentSku: 'kit-sat',
+		childSku: 'poe-switch-at',
+		qty: 1,
+		role: 'plant',
+		sortOrder: 30,
+		notes: 'Powers the optional turrets. Does not power Thor.'
+	},
 
 	{ parentSku: 'kit-hybrid-plant', childSku: 'asm-thor-sandwich', qty: 1, role: 'body', sortOrder: 10 },
 	{ parentSku: 'kit-hybrid-plant', childSku: 'pl-i-reader', qty: 1, role: 'body-i', sortOrder: 20 },

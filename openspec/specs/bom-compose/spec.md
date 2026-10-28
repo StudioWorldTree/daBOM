@@ -84,6 +84,22 @@ is `buy`, and no row is `foundry`.
 - THEN the exploded lines include buy leaves such as `t4000-som` and
   `rogue-t5` and do not include a foundry-level grandchild
 
+### Requirement: Optional sticks down the tree
+
+When a BOM line is optional, explode and roll-up SHALL mark that line and
+every descendant optional. A sibling line marked optional on its own SHALL
+stay optional. Roll-up of the optional kit itself SHALL count its children
+as that kit's required money, so the section has a price of its own.
+
+#### Scenario: Satellite plant is off the production required total
+
+- GIVEN the seeded catalog
+- WHEN GET `/api/v1/items/kit-prod/bom?explode=true`
+- THEN `rv1126b-turret`, `rv1126b-evb`, and `poe-switch-at` are optional
+  and `t4000-som` is not
+- AND GET `/api/v1/items/kit-sat/rollup` counts those leaves as required
+  money for the satellite kit
+
 #### Scenario: Catalog rows are tagged, not inferred
 
 - GIVEN `seedItems` and `seedBoms` imported from the catalog module

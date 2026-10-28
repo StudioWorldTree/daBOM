@@ -211,17 +211,26 @@ export type ExplodedRow = BomLineView & { path: string[]; qtyEach: number; qtyRo
 
 export async function explodeBom(db: Db, rootSku: string): Promise<ExplodedRow[]> {
 	const out: ExplodedRow[] = [];
-	async function walk(sku: string, path: string[], factor: number) {
+	// An optional kit (the satellite plant on Cart T) is one line. Its leaves
+	// stay optional money, or the required total would still buy them.
+	async function walk(sku: string, path: string[], factor: number, ancestorOptional: boolean) {
 		const lines = await listBom(db, sku);
 		for (const line of lines) {
 			const qtyRollup = factor * line.qty;
-			out.push({ ...line, path: [...path, line.childSku], qtyEach: line.qty, qtyRollup });
+			const optional = line.optional || ancestorOptional;
+			out.push({
+				...line,
+				optional,
+				path: [...path, line.childSku],
+				qtyEach: line.qty,
+				qtyRollup
+			});
 			if (!isLeaf(line.child)) {
-				await walk(line.childSku, [...path, line.childSku], qtyRollup);
+				await walk(line.childSku, [...path, line.childSku], qtyRollup, optional);
 			}
 		}
 	}
-	await walk(rootSku, [rootSku], 1);
+	await walk(rootSku, [rootSku], 1, false);
 	return out;
 }
 

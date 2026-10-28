@@ -60,4 +60,4 @@ Cycle detection on BOM writes. Delete is refused while the SKU is on a parent or
 - SvelteKit 2 + `adapter-node` (not `adapter-static`)
 - Hono + `@hono/zod-openapi` + Swagger UI
 - Drizzle ORM + `@electric-sql/pglite` (Postgres in a directory)
-- Seeded kits: Cart S (lab brick), Cart T (T4000 + Rogue-T5), Cart C (PYXIS PL), hybrid plant
+- Seeded kits: Cart S (lab brick), Cart T (T4000 + Rogue-T5), Cart C (PYXIS PL), optional satellites (`kit-sat`), hybrid plant

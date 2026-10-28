@@ -98,7 +98,7 @@ than from a field list pasted here. One whole example:
   (manufacturer, MPN) pair, then MPN alone, then a supplied kebab sku, then a
   minted slug. Supplying a sku pre-empts a seeded row.
 - **No invented part number.** A cart line with no MPN anywhere in the
-  document (the PYXIS 6K PL and the RV1126 turrets in `Cart T`) becomes a
+  document (the PYXIS 6K PL in `Cart T`) becomes a
   name-minted node and lands as `placeholder`. That is the honest outcome —
   do not go hunting the web for a number.
 - **No prices.** Price cells in the brief are dropped. Quotes are a separate

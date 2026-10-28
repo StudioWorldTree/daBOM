@@ -124,9 +124,13 @@ describe('daBOM API', () => {
 		const qtyAt = cols.indexOf('qty_for_one');
 		const extAt = cols.indexOf('ext_for_one_usd');
 		const floorAt = cols.indexOf('floor');
+		const optionalAt = cols.indexOf('optional');
 		const turret = rows.find((row) => row.split(',')[skuAt] === 'rv1126b-turret');
 		expect(turret?.split(',')[qtyAt]).toBe('2');
+		expect(turret?.split(',')[optionalAt]).toBe('yes');
+		expect(turret).toContain('kit-sat');
 		const som = rows.find((row) => row.split(',')[skuAt] === 't4000-som');
+		expect(som?.split(',')[optionalAt]).toBe('no');
 		expect(som?.split(',')[extAt]).toBe('2749.00');
 		const sandwich = rows.find((row) => row.split(',')[skuAt] === 'asm-thor-sandwich');
 		expect(sandwich?.split(',')[floorAt]).toBe('assemble');
@@ -147,6 +151,48 @@ describe('daBOM API', () => {
 		expect(json.lineCount).toBe(0);
 		expect(json.parent.sku).toBe('t4000-som');
 		expect(json.parent.floor).toBe('buy');
+	});
+
+	it('keeps the satellite plant off the Cart T required total', async () => {
+		const direct = await (await app.request('/items/kit-prod/bom')).json();
+		const children = direct.lines.map((line: { childSku: string }) => line.childSku);
+		expect(children).toEqual(['asm-thor-sandwich', 'pyxis-6k-pl', 'kit-sat', 'hdmi-usb-capture']);
+
+		const exploded = await (await app.request('/items/kit-prod/bom?explode=true')).json();
+		const row = (sku: string) =>
+			exploded.lines.find((line: { childSku: string }) => line.childSku === sku);
+		expect(row('rv1126b-turret')).toMatchObject({
+			optional: true,
+			qtyRollup: 2,
+			path: ['kit-prod', 'kit-sat', 'asm-sat-mule', 'rv1126b-turret']
+		});
+		expect(row('rv1126b-evb').optional).toBe(true);
+		expect(row('poe-switch-at').optional).toBe(true);
+		expect(row('t4000-som').optional).toBe(false);
+		expect(row('hdmi-usb-capture').optional).toBe(true);
+
+		const sat = await (await app.request('/items/kit-sat/rollup')).json();
+		expect(sat.requiredCents).toBe(60000);
+		expect(sat.optionalCents).toBe(0);
+		expect(sat.missingQuotes).toEqual([]);
+
+		const prod = await (await app.request('/items/kit-prod/rollup')).json();
+		expect(prod.knownOptionalCents).toBe(68000);
+		expect(prod.missingQuotes).toContain('rogue-t5');
+		expect(prod.missingQuotes).not.toContain('rv1126b-turret');
+
+		const cine = await (await app.request('/items/kit-cine/bom')).json();
+		expect(cine.lines.map((line: { childSku: string }) => line.childSku)).toEqual([
+			'asm-thor-sandwich',
+			'pyxis-6k-pl',
+			'kit-sat'
+		]);
+		const cineRoll = await (await app.request('/items/kit-cine/rollup')).json();
+		expect(cineRoll.knownOptionalCents).toBe(60000);
+
+		const plant = await (await app.request('/items/kit-hybrid-plant/bom')).json();
+		expect(plant.lines.map((line: { childSku: string }) => line.childSku)).toContain('asm-sat-product');
+		expect(plant.lines.map((line: { childSku: string }) => line.childSku)).not.toContain('kit-sat');
 	});
 
 	it('rolls up Cart T and rejects a cyclic line', async () => {

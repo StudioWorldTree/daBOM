@@ -78,11 +78,17 @@ describe('the production kit is not the shopping menu', () => {
 		expect(heatsink?.mpn).toBeNull();
 	});
 
+	it('leaves the optional satellite plant off Cart T', () => {
+		const text = (request.root.children ?? [])
+			.map((child) => `${child.name ?? ''} ${child.lineNotes ?? ''}`)
+			.join('\n');
+		expect(text).not.toMatch(/turret|EVB|PoE\+/i);
+	});
+
 	it('carries the qty a cart line states', () => {
-		const turrets = (request.root.children ?? []).find((child) =>
-			(child.lineNotes ?? '').includes('PoE turrets')
-		);
-		expect(turrets?.qty).toBe(1);
+		const mini = parseMarkdown('### Cart Q — qty\n\n1. 2× Widget — `WIDGET-2`\n');
+		const composed = composeFromCart(mini, 'Cart Q', { source: 'fixture' });
+		expect(composed.root.children?.[0]?.qty).toBe(2);
 	});
 
 	it('leaves sku absent so the server ladder resolves identity', () => {

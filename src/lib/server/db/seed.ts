@@ -71,7 +71,7 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 
 	// Backfill, mirroring migration 0001. The shipped catalog now names the
 	// floor on every row, so this is a no-op on the seed — the catalog test
-	// pins all eight `seedBoms` parents to `assemble` already. It stays as a
+	// pins every `seedBoms` parent to `assemble` already. It stays as a
 	// second door for a catalog that grew a parent without naming it.
 	await db
 		.update(items)
