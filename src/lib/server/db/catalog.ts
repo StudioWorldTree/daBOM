@@ -235,42 +235,6 @@ export const seedItems: SeedItem[] = [
 		quote: { vendorId: 'cti', priceCents: null, currency: 'USD', isPreferred: true, notes: 'Quote with the carrier.' }
 	},
 	{
-		sku: 'cti-jcb003',
-		name: 'CTI JCB003 SDI→CSI',
-		kind: 'part',
-		floor: 'buy',
-		category: 'interconnect',
-		status: 'do-not-buy',
-		manufacturer: 'Connect Tech',
-		mpn: 'JCB003',
-		description: '2× 3G-SDI in → MIPI. 1080p60 max. Not a 4K pipeline.',
-		source: SRC,
-		notes: 'PYXIS 12G-SDI will not give 4K through this. Only if we accept 1080p into the ISP on day one.',
-		quote: {
-			vendorId: 'wdl',
-			priceCents: 153800,
-			currency: 'USD',
-			url: 'https://www.wdlsystems.com/connect-tech-jcb003-01',
-			checkedAt: CHECKED,
-			inStock: true,
-			isPreferred: false,
-			notes: 'Do not buy as a 4K path.'
-		}
-	},
-	{
-		sku: 'cti-jcb010',
-		name: 'CTI JCB010 HDMI→CSI',
-		kind: 'part',
-		floor: 'buy',
-		category: 'interconnect',
-		status: 'candidate',
-		manufacturer: 'Connect Tech',
-		mpn: 'JCB010',
-		description: '4× HDMI → MIPI. 4K30 maybe. Thor BSP not confirmed in public docs.',
-		source: SRC,
-		quote: { vendorId: 'cti', priceCents: null, currency: 'USD', notes: 'Page still says Rogue/Forge Orin/Xavier.' }
-	},
-	{
 		sku: 'cti-jcb022',
 		name: 'CTI JCB022 GMSL2 deserializer',
 		kind: 'part',
@@ -933,16 +897,7 @@ export const seedBoms: SeedBom[] = [
 		role: 'live-ai',
 		optional: true,
 		sortOrder: 60,
-		notes: 'Until a CSI/GMSL add-on exists.'
-	},
-	{
-		parentSku: 'kit-prod',
-		childSku: 'cti-jcb003',
-		qty: 1,
-		role: 'sdi-csi',
-		optional: true,
-		sortOrder: 70,
-		notes: 'Only if we need SDI→CSI on day one. Accept 1080p.'
+		notes: 'Monitor picture only. Body 4K is a CSI sensor on the Rogue header, not a bridge card.'
 	},
 
 	{ parentSku: 'kit-cine', childSku: 'asm-thor-sandwich', qty: 1, role: 'body-compute', sortOrder: 10 },
