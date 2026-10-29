@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "id": "res-add-evidence-act",
+  "packet_id": "pkt-add-evidence-act",
+  "node_id": "add-evidence",
+  "capability": "bom-evidence",
+  "outcome": "pass",
+  "summary": "Shared sources, append-only enrichments and thoughts, catalog backfill, and atomic item deletion are on main. Conductor re-ran npm test: 9 files, 104 tests, exit 0.",
+  "verification": {
+    "command": "npm test",
+    "exit_code": 0,
+    "test_files_passed": 9,
+    "tests_passed": 104
+  },
+  "artifacts": [
+    "ARCHITECTURE.md",
+    "drizzle/0003_vengeful_sage.sql",
+    "drizzle/meta/0003_snapshot.json",
+    "drizzle/meta/_journal.json",
+    "openspec/AGENTS.md",
+    "openspec/changes/add-evidence/tasks.md",
+    "src/lib/server/api/app.ts",
+    "src/lib/server/api/dto.ts",
+    "src/lib/server/api/schemas.ts",
+    "src/lib/server/api/evidence.test.ts",
+    "src/lib/server/db/schema.ts",
+    "src/lib/server/db/seed.ts",
+    "src/lib/server/db/evidence.ts",
+    "src/lib/server/db/evidence.test.ts",
+    "src/lib/server/evidence.ts",
+    "src/lib/types.ts"
+  ],
+  "commit": {
+    "sha": "a58e71b0bc47cd4371d90680e39c6ebae418307b",
+    "paths": [
+      "ARCHITECTURE.md",
+      "openspec/AGENTS.md",
+      "src/lib/types.ts",
+      "src/lib/server",
+      "drizzle",
+      "openspec/changes/add-evidence",
+      "groups/add-evidence/packet.json"
+    ]
+  },
+  "persistence": "conductor persist on main",
+  "raw_ref": ".spawns/add-evidence-1793233789-55481-2bd1dbfe/last.md",
+  "signature": {
+    "mode": "stand-in",
+    "stand_in_id": "sol-implement",
+    "content_hash": "sha256:3d790d0a0e58d46c2adddfc95b7543164c1fb61c782edec0d83faf02eb0b33a0"
+  }
+}
