@@ -5,6 +5,8 @@ import {
 	itemStatuses,
 	quoteMethods,
 	type Item,
+	type Enrichment,
+	type Thought,
 	type Quote,
 	type Vendor
 } from '../db/schema';
@@ -69,4 +71,12 @@ export function vendorDto(row: Vendor) {
 		email: row.email,
 		notes: row.notes
 	};
+}
+
+export function enrichmentDto(row: Enrichment) {
+	return { ...row, createdAt: row.createdAt.toISOString() };
+}
+
+export function thoughtDto(row: Thought & { sourceIds: string[] }) {
+	return { ...row, createdAt: row.createdAt.toISOString() };
 }

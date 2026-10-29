@@ -384,3 +384,124 @@ export const IngestResultSchema = z
 		root: IngestNodeResultSchema
 	})
 	.openapi('IngestResult');
+
+export const SourceKind = z.enum(['notebook', 'datasheet', 'link', 'analysis']);
+export const EnrichmentMethod = z.enum(['ingest', 'manual']);
+
+export const SourceLocator = z
+	.string()
+	.trim()
+	.min(1)
+	.refine((locator) => {
+		if (/^https?:\/\//i.test(locator)) {
+			try {
+				const url = new URL(locator);
+				return Boolean(url.hostname) && !/\s/.test(locator);
+			} catch {
+				return false;
+			}
+		}
+		// Relative document paths, including sibling repositories. Schemes,
+		// absolute paths, shell home expansion, and prose are not locators.
+		return (
+			!/^(?:[a-z][a-z0-9+.-]*:|\/|~)/i.test(locator) &&
+			!/[\\\x00-\x1f?#]/.test(locator) &&
+			/^(?:[^\s/]+\/)+[^/]+$|^[^\s/]+\.[^\s/.]+$/.test(locator)
+		);
+	}, 'locator must be a repository-relative path or an absolute http/https URL')
+	.openapi({
+		description: 'Trimmed repository-relative document path or absolute http/https URL.',
+		example: '../AICamera/docs/SHOPPING.md'
+	});
+
+export const SourceCreateSchema = z
+	.strictObject({
+		kind: SourceKind,
+		locator: SourceLocator,
+		title: z.string().nullable().optional()
+	})
+	.openapi('SourceCreate');
+
+export const SourceSchema = z
+	.object({
+		id: z.string().uuid(),
+		kind: SourceKind,
+		locator: z.string(),
+		title: z.string().nullable()
+	})
+	.openapi('Source');
+
+export const SourceParam = z.object({
+	id: z
+		.string()
+		.uuid()
+		.openapi({ param: { name: 'id', in: 'path' } })
+});
+
+export const ItemSourceCreateSchema = z
+	.union([z.strictObject({ sourceId: z.string().uuid() }), SourceCreateSchema])
+	.openapi('ItemSourceCreate');
+
+export const ItemSourceSchema = z
+	.object({
+		itemSku: z.string(),
+		sourceId: z.string().uuid()
+	})
+	.openapi('ItemSource');
+
+export const EnrichmentCreateSchema = z
+	.strictObject({
+		field: z.enum(['manufacturer', 'mpn', 'notes']).nullable().optional(),
+		value: z.string().min(1),
+		body: z.string().nullable().optional(),
+		sourceId: z.string().uuid().nullable().optional(),
+		method: EnrichmentMethod.default('manual')
+	})
+	.openapi('EnrichmentCreate');
+
+export const EnrichmentSchema = z
+	.object({
+		id: z.string().uuid(),
+		itemSku: z.string(),
+		field: z.enum(['manufacturer', 'mpn', 'notes']).nullable(),
+		value: z.string(),
+		body: z.string().nullable(),
+		sourceId: z.string().uuid().nullable(),
+		method: EnrichmentMethod,
+		createdAt: z.string().datetime()
+	})
+	.openapi('Enrichment');
+
+export const ThoughtCreateSchema = z
+	.strictObject({
+		body: z.string().refine((body) => body.trim().length > 0, 'body must be non-empty'),
+		sourceIds: z.array(z.string().uuid()).default([])
+	})
+	.openapi('ThoughtCreate');
+
+export const ThoughtSchema = z
+	.object({
+		id: z.string().uuid(),
+		itemSku: z.string(),
+		body: z.string(),
+		sourceIds: z.array(z.string().uuid()),
+		createdAt: z.string().datetime()
+	})
+	.openapi('Thought');
+
+export const ItemEvidenceSchema = z
+	.object({
+		itemSku: z.string(),
+		links: z.array(ItemSourceSchema),
+		sources: z.array(SourceSchema),
+		enrichments: z.array(EnrichmentSchema),
+		thoughts: z.array(ThoughtSchema)
+	})
+	.openapi('ItemEvidence');
+
+export const SourceEvidenceSchema = z
+	.object({
+		source: SourceSchema,
+		items: z.array(ItemSchema)
+	})
+	.openapi('SourceEvidence');

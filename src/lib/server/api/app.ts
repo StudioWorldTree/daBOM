@@ -1,6 +1,6 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi';
-import { and, count, desc, eq, ilike, ne, or } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, ne, or } from 'drizzle-orm';
 import {
 	addBomLine,
 	deleteBomLine,
@@ -16,9 +16,27 @@ import {
 	whereUsed,
 	wouldCycle
 } from '../bom';
-import { bomLines, items, quotes, vendors, type DabomDb } from '../db';
+import {
+	bomLines,
+	enrichments,
+	itemSources,
+	items,
+	quotes,
+	thoughts,
+	thoughtSources,
+	vendors,
+	type DabomDb
+} from '../db';
+import {
+	addEnrichment,
+	addThought,
+	createSource,
+	itemEvidence,
+	linkSource,
+	sourceEvidence
+} from '../evidence';
 import { csvFilename } from '../bom-csv';
-import { itemDto, quoteDto, vendorDto } from './dto';
+import { enrichmentDto, itemDto, quoteDto, thoughtDto, vendorDto } from './dto';
 import {
 	BomLineCreateSchema,
 	BomLinePatchSchema,
@@ -26,6 +44,17 @@ import {
 	BomReplaceSchema,
 	BomSchema,
 	ErrorSchema,
+	EnrichmentCreateSchema,
+	EnrichmentSchema,
+	ItemEvidenceSchema,
+	ItemSourceCreateSchema,
+	ItemSourceSchema,
+	SourceCreateSchema,
+	SourceEvidenceSchema,
+	SourceParam,
+	SourceSchema,
+	ThoughtCreateSchema,
+	ThoughtSchema,
 	ExplodeQuery,
 	ExplodedBomSchema,
 	IngestRequestSchema,
@@ -232,8 +261,21 @@ export function createApi(db: DabomDb) {
 					childLines: children.length
 				});
 			}
-			await db.delete(quotes).where(eq(quotes.itemSku, sku));
-			await db.delete(items).where(eq(items.sku, sku));
+			await db.transaction(async (tx) => {
+				await tx.delete(quotes).where(eq(quotes.itemSku, sku));
+				await tx
+					.delete(thoughtSources)
+					.where(
+						inArray(
+							thoughtSources.thoughtId,
+							tx.select({ id: thoughts.id }).from(thoughts).where(eq(thoughts.itemSku, sku))
+						)
+					);
+				await tx.delete(thoughts).where(eq(thoughts.itemSku, sku));
+				await tx.delete(enrichments).where(eq(enrichments.itemSku, sku));
+				await tx.delete(itemSources).where(eq(itemSources.itemSku, sku));
+				await tx.delete(items).where(eq(items.sku, sku));
+			});
 			return c.json(itemDto(item));
 		}
 	);
@@ -651,6 +693,114 @@ export function createApi(db: DabomDb) {
 		}
 	);
 
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/sources',
+			tags: ['Evidence'],
+			summary: 'Create or reuse a source by trimmed locator',
+			description: 'An existing locator returns its original row without changing kind or title.',
+			request: { body: json(SourceCreateSchema, 'Source') },
+			responses: {
+				200: json(SourceSchema, 'Created or existing source'),
+				...err(422, 'Invalid locator or source')
+			}
+		}),
+		async (c) => c.json(await createSource(db, c.req.valid('json')))
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/items/{sku}/sources',
+			tags: ['Evidence'],
+			summary: 'Link a source by id or create and link by locator',
+			request: { params: SkuParam, body: json(ItemSourceCreateSchema, 'Source id or locator') },
+			responses: {
+				200: json(ItemSourceSchema, 'Created or existing link'),
+				...err(404, 'Missing item or source'),
+				...err(422, 'Invalid source')
+			}
+		}),
+		async (c) => c.json(await linkSource(db, c.req.valid('param').sku, c.req.valid('json')))
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/items/{sku}/enrichments',
+			tags: ['Evidence'],
+			summary: 'Append a fact without changing the item',
+			request: { params: SkuParam, body: json(EnrichmentCreateSchema, 'Observation') },
+			responses: {
+				201: json(EnrichmentSchema, 'Appended'),
+				...err(404, 'Missing item or source'),
+				...err(422, 'Invalid enrichment')
+			}
+		}),
+		async (c) =>
+			c.json(
+				enrichmentDto(await addEnrichment(db, c.req.valid('param').sku, c.req.valid('json'))),
+				201
+			)
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/items/{sku}/thoughts',
+			tags: ['Evidence'],
+			summary: 'Append a thought and optional source citations without changing the item',
+			request: { params: SkuParam, body: json(ThoughtCreateSchema, 'Thought and citations') },
+			responses: {
+				201: json(ThoughtSchema, 'Appended'),
+				...err(404, 'Missing item or source'),
+				...err(422, 'Invalid thought')
+			}
+		}),
+		async (c) =>
+			c.json(thoughtDto(await addThought(db, c.req.valid('param').sku, c.req.valid('json'))), 201)
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/items/{sku}/evidence',
+			tags: ['Evidence'],
+			summary: 'Read linked and cited sources, facts, and thoughts',
+			description:
+				'Enrichments and thoughts are append-only histories ordered by createdAt ascending, then id ascending.',
+			request: { params: SkuParam },
+			responses: { 200: json(ItemEvidenceSchema, 'Evidence'), ...err(404, 'Missing item') }
+		}),
+		async (c) => {
+			const evidence = await itemEvidence(db, c.req.valid('param').sku);
+			return c.json({
+				...evidence,
+				enrichments: evidence.enrichments.map(enrichmentDto),
+				thoughts: evidence.thoughts.map(thoughtDto)
+			});
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/sources/{id}',
+			tags: ['Evidence'],
+			summary: 'Read a source and every item linking or citing it',
+			request: { params: SourceParam },
+			responses: {
+				200: json(SourceEvidenceSchema, 'Source and items'),
+				...err(404, 'Missing source')
+			}
+		}),
+		async (c) => {
+			const evidence = await sourceEvidence(db, c.req.valid('param').id);
+			return c.json({ ...evidence, items: evidence.items.map(itemDto) });
+		}
+	);
+
 	app.doc31('/openapi.json', {
 		openapi: '3.1.0',
 		info: {
@@ -694,7 +844,8 @@ export function createApi(db: DabomDb) {
 			{ name: 'BOM' },
 			{ name: 'Vendors' },
 			{ name: 'Quotes' },
-			{ name: 'Ingest' }
+			{ name: 'Ingest' },
+			{ name: 'Evidence' }
 		]
 	});
 

@@ -1,6 +1,6 @@
 # OpenSpec
 
-Capabilities: `bom-compose`, `bom-quotes`, `bom-ingest`,
+Capabilities: `bom-compose`, `bom-quotes`, `bom-ingest`, `bom-evidence`,
 `ingest-skills`, `price-skills`.
 Changes live in `openspec/changes/<id>/`. Fold updates
 `openspec/specs/<capability>/spec.md`.

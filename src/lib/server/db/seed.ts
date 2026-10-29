@@ -1,8 +1,18 @@
 import { count, inArray, sql } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
 import { seedBoms, seedItems, seedVendors } from './catalog';
+import { backfillSourceLinks } from './evidence';
 import * as schema from './schema';
-import { bomLines, items, quotes, vendors } from './schema';
+import {
+	bomLines,
+	enrichments,
+	itemSources,
+	items,
+	quotes,
+	thoughts,
+	thoughtSources,
+	vendors
+} from './schema';
 
 export type DabomDb = PgliteDatabase<typeof schema>;
 
@@ -11,6 +21,10 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 	if (n > 0 && !opts.force) return { seeded: false, itemCount: n };
 
 	if (opts.force) {
+		await db.delete(thoughtSources);
+		await db.delete(thoughts);
+		await db.delete(enrichments);
+		await db.delete(itemSources);
 		await db.delete(bomLines);
 		await db.delete(quotes);
 		await db.delete(items);
@@ -77,6 +91,8 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 		.update(items)
 		.set({ floor: 'assemble' })
 		.where(inArray(items.sku, sql`(select distinct parent_sku from bom_lines)`));
+
+	await backfillSourceLinks(db);
 
 	const [{ n: after }] = await db.select({ n: count() }).from(items);
 	return { seeded: true, itemCount: after };

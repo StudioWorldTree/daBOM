@@ -234,3 +234,37 @@ keeps the skill from becoming a second write path beside REST.
 **Not decided here.** Auth on `/api`. Daily sweep scheduler.
 
 **Living spec:** [`openspec/specs/price-skills/spec.md`](openspec/specs/price-skills/spec.md)
+
+---
+
+### ADR-007: Shared sources and append-only item evidence
+
+**Status:** Accepted (`add-evidence`).
+**Blast:** evidence tables, REST/OpenAPI, migration, seed, item deletion.
+
+**Decision.** Evidence has three stores: shared document sources (with bare
+`item_sources` links), observed facts in `enrichments`, and interpretations
+in `thoughts` with `thought_sources` citations. A source is identified by
+its trimmed locator; retries reuse the row without changing its kind or
+title. Facts and thoughts receive server timestamps and stable UUIDs;
+reads order each history by `createdAt` then id. There are no individual
+update or delete operations for those histories.
+
+**Why.** A document, what it says, and what we think about it have different
+lifetimes. Appending evidence must preserve prior contributions without
+silently rewriting item columns or competing with quote method ranking.
+Applying a fact remains an explicit item PATCH. Evidence carries no price,
+vendor, or quote method, and creates no quote.
+
+**Consequences.**
+
+- Migration links trimmed non-empty legacy `items.source` values as notebook
+  sources, including legacy locators that new requests would reject. It
+  leaves those columns intact and invents no observations.
+- Since migration precedes seed, seed repeats that source/link backfill for
+  catalog rows. Forced reseed clears evidence joins and histories before
+  items, then recreates the same catalog links. Unused sources may remain.
+- Item deletion checks BOM usage before deleting anything, then deletes
+  quotes and all owned evidence with the item in one transaction. Shared
+  sources remain, including sources reached only by another item's citation.
+- Ingest writing evidence and extracting URLs from markdown are later work.

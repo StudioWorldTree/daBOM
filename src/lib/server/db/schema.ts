@@ -5,6 +5,7 @@ import {
 	index,
 	integer,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	uniqueIndex,
@@ -44,6 +45,10 @@ export const itemFloors = ['buy', 'assemble', 'foundry'] as const;
  */
 export const quoteMethods = ['api', 'headed', 'crawl', 'seed', 'manual'] as const;
 export type QuoteMethod = (typeof quoteMethods)[number];
+
+export const sourceKinds = ['notebook', 'datasheet', 'link', 'analysis'] as const;
+export const enrichmentMethods = ['ingest', 'manual'] as const;
+export const enrichmentFields = ['manufacturer', 'mpn', 'notes'] as const;
 
 export const items = pgTable(
 	'items',
@@ -138,6 +143,78 @@ export const bomLines = pgTable(
 	]
 );
 
+export const sources = pgTable('sources', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	kind: text('kind', { enum: sourceKinds }).notNull(),
+	locator: text('locator').notNull().unique(),
+	title: text('title')
+});
+
+export const itemSources = pgTable(
+	'item_sources',
+	{
+		itemSku: text('item_sku')
+			.notNull()
+			.references(() => items.sku),
+		sourceId: uuid('source_id')
+			.notNull()
+			.references(() => sources.id)
+	},
+	(t) => [
+		primaryKey({ columns: [t.itemSku, t.sourceId] }),
+		index('item_sources_source_idx').on(t.sourceId)
+	]
+);
+
+export const enrichments = pgTable(
+	'enrichments',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		itemSku: text('item_sku')
+			.notNull()
+			.references(() => items.sku),
+		sourceId: uuid('source_id').references(() => sources.id),
+		field: text('field', { enum: enrichmentFields }),
+		value: text('value').notNull(),
+		body: text('body'),
+		method: text('method', { enum: enrichmentMethods }).notNull().default('manual'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		index('enrichments_item_history_idx').on(t.itemSku, t.createdAt, t.id),
+		index('enrichments_source_idx').on(t.sourceId)
+	]
+);
+
+export const thoughts = pgTable(
+	'thoughts',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		itemSku: text('item_sku')
+			.notNull()
+			.references(() => items.sku),
+		body: text('body').notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [index('thoughts_item_history_idx').on(t.itemSku, t.createdAt, t.id)]
+);
+
+export const thoughtSources = pgTable(
+	'thought_sources',
+	{
+		thoughtId: uuid('thought_id')
+			.notNull()
+			.references(() => thoughts.id),
+		sourceId: uuid('source_id')
+			.notNull()
+			.references(() => sources.id)
+	},
+	(t) => [
+		primaryKey({ columns: [t.thoughtId, t.sourceId] }),
+		index('thought_sources_source_idx').on(t.sourceId)
+	]
+);
+
 export const itemsRelations = relations(items, ({ many }) => ({
 	quotes: many(quotes),
 	bomLines: many(bomLines, { relationName: 'bomParent' }),
@@ -174,3 +251,6 @@ export type Quote = typeof quotes.$inferSelect;
 export type NewQuote = typeof quotes.$inferInsert;
 export type BomLine = typeof bomLines.$inferSelect;
 export type NewBomLine = typeof bomLines.$inferInsert;
+export type Source = typeof sources.$inferSelect;
+export type Enrichment = typeof enrichments.$inferSelect;
+export type Thought = typeof thoughts.$inferSelect;

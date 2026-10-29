@@ -128,3 +128,41 @@ export type IngestResult = {
 	lines: string[];
 	children: IngestResult[];
 };
+
+export type Source = {
+	id: string;
+	kind: 'notebook' | 'datasheet' | 'link' | 'analysis';
+	locator: string;
+	title: string | null;
+};
+
+export type ItemSource = { itemSku: string; sourceId: string };
+
+export type Enrichment = {
+	id: string;
+	itemSku: string;
+	sourceId: string | null;
+	field: 'manufacturer' | 'mpn' | 'notes' | null;
+	value: string;
+	body: string | null;
+	method: 'ingest' | 'manual';
+	createdAt: string;
+};
+
+export type Thought = {
+	id: string;
+	itemSku: string;
+	body: string;
+	sourceIds: string[];
+	createdAt: string;
+};
+
+export type ItemEvidence = {
+	itemSku: string;
+	links: ItemSource[];
+	sources: Source[];
+	enrichments: Enrichment[];
+	thoughts: Thought[];
+};
+
+export type SourceEvidence = { source: Source; items: Item[] };
