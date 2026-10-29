@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-link-extract-act",
+  "node_id": "add-link-extract",
+  "capability": "ingest-skills",
+  "change_id": "add-link-extract",
+  "goal": "Implement add-link-extract on current main. The contract is openspec/changes/add-link-extract/specs/ingest-skills/spec.md and design.md. On each selected line, the composer adds a sources entry for every markdown-link URL and every bare http(s) URL on that line. Capture the URL before plain() strips the link out of the name. Price text stays dropped. A URL only on a rejected heading stays out. Do not invent URLs. The tree file remains the POST body; a hand edit may drop an entry. The skill still only POSTs /api/v1/ingest. It does not POST /sources or /enrichments. Tests stay under skills/**. The skill directory still has no drizzle, SQL, or $lib/server import. Check the open boxes in tasks.md. The gate box is already checked. Run npm test and leave it green. Prior node add-ingest-evidence closed pass: ingest stores sources[] at 2892c42, folded at 7ac2342, npm test 128 passed. Beads close was blocked.",
+  "non_goals": [
+    "Changing the ingest transaction",
+    "POSTing /sources or /enrichments from the skill",
+    "Parsing PDF bytes",
+    "Choosing an MPN when a line has two part numbers",
+    "Crib UI"
+  ],
+  "anchors": [
+    {
+      "symbol": "skills/ingest-hardware/lib/candidates.ts:plain",
+      "invariant": "plain text still strips markdown links from the name; the URL is captured before that"
+    },
+    {
+      "symbol": "skills/ingest-hardware/lib/compose.ts:nodeFor",
+      "invariant": "source stays the document path; prices stay dropped; sources are extra links"
+    },
+    {
+      "symbol": "openspec/changes/add-link-extract/design.md",
+      "invariant": "every URL on a selected line; the tree file is the hand edit; rejected headings stay out"
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "command": "npm test"
+  },
+  "out_of_scope": [
+    { "item": "Evidence tables and direct routes", "tracked_as": "add-evidence" },
+    { "item": "Ingest transaction storing sources", "tracked_as": "add-ingest-evidence" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "skills/ingest-hardware",
+      "openspec/changes/add-link-extract/tasks.md"
+    ],
+    "do_not": [
+      "fold",
+      "push",
+      "edit src/",
+      "edit the ingest-skills spec delta",
+      "flip the banner"
+    ]
+  },
+  "load_class": "ambiguous",
+  "rigor": "change",
+  "density": "standard",
+  "surface": "packet-only",
+  "role": "worker",
+  "assignee": {
+    "id": "sol-implement",
+    "kind": "model",
+    "harness": "codex",
+    "interface": "gpt-6.1-sol",
+    "signing": { "mode": "stand-in", "stand_in_id": "sol-implement" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

@@ -103,6 +103,11 @@ than from a field list pasted here. One whole example:
   do not go hunting the web for a number.
 - **No prices.** Price cells in the brief are dropped. Quotes are a separate
   skill.
+- **Keep selected links.** Every markdown link target and bare `http`/`https`
+  URL on a selected cart line or matched heading rides that node's `sources`.
+  The document path stays `source`. Links found only on rejected parts stay
+  out. Read the tree file and remove any unwanted `sources` entries there;
+  the POST script sends that edited file as its only write.
 
 ## When it does not return 201
 

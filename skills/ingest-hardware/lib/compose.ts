@@ -18,6 +18,7 @@ export interface IngestNode {
 	mpn?: string | null;
 	notes?: string | null;
 	source?: string | null;
+	sources?: { locator: string }[];
 	qty?: number;
 	role?: string;
 	lineNotes?: string | null;
@@ -70,6 +71,7 @@ function nodeFor(line: CartLine, candidates: Candidate[], source: string): Inges
 		mpn,
 		notes: match?.notes ?? null,
 		source,
+		sources: [...new Set([...(match?.urls ?? []), ...line.urls])].map((locator) => ({ locator })),
 		qty: line.qty,
 		lineNotes: line.raw
 	};
@@ -91,7 +93,9 @@ export function composeFromCart(
 			`${cart.id} has no numbered lines to select from; compose another cart and hand edit the tree file`
 		);
 	}
-	return treeOf(cart.lines, doc.candidates, options.rootName ?? cart.title, options);
+	const request = treeOf(cart.lines, doc.candidates, options.rootName ?? cart.title, options);
+	request.root.sources = cart.urls.map((locator) => ({ locator }));
+	return request;
 }
 
 /** Compose the tree from an explicit list of MPNs a human passed in. */
@@ -100,7 +104,13 @@ export function composeFromMpns(
 	mpns: string[],
 	options: ComposeOptions
 ): IngestRequest {
-	const lines: CartLine[] = mpns.map((mpn) => ({ raw: mpn, name: mpn, qty: 1, codes: [mpn] }));
+	const lines: CartLine[] = mpns.map((mpn) => ({
+		raw: mpn,
+		name: mpn,
+		qty: 1,
+		codes: [mpn],
+		urls: []
+	}));
 	const missing = lines.filter((line) => !candidateFor(line, doc.candidates)).map((l) => l.raw);
 	if (missing.length) {
 		throw new Error(`No candidate in the document for: ${missing.join(', ')}`);

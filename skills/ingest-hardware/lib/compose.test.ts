@@ -129,3 +129,92 @@ describe('an MPN list is the other selection', () => {
 		);
 	});
 });
+
+describe('selected-line source links', () => {
+	const linked = parseMarkdown(`
+### NVIDIA [Widget](https://parts.example/widget) — $249
+| PN | \`WIDGET-100\` |
+| Notes | A widget for $249. |
+
+### [Rejected part](https://rejected.example/heading)
+| PN | \`REJECT-100\` |
+
+### Cart T — [Selected](https://parts.example/kit)
+1. 2× [Widget](https://shop.example/widget) — \`WIDGET-100\`, $249; http://vendor.example/spec
+2. [Cable](https://shop.example/cable) — $19
+3. Unlinked accessory — $10
+
+### Cart R — Rejected
+1. Other item — https://rejected.example/cart
+`);
+
+	it('keeps every link from selected cart lines and matching headings', () => {
+		const request = composeFromCart(linked, 'Cart T', { source: 'brief.md' });
+		expect(request.root.sources).toEqual([{ locator: 'https://parts.example/kit' }]);
+		expect(request.root.children?.[0]).toMatchObject({
+			name: 'NVIDIA Widget',
+			qty: 2,
+			source: 'brief.md',
+			sources: [
+				{ locator: 'https://parts.example/widget' },
+				{ locator: 'https://shop.example/widget' },
+				{ locator: 'http://vendor.example/spec' }
+			]
+		});
+		expect(request.root.children?.[1]).toMatchObject({
+			name: 'Cable',
+			mpn: null,
+			sources: [{ locator: 'https://shop.example/cable' }]
+		});
+		expect(request.root.children?.[2]?.sources).toEqual([]);
+		expect(request.source).toBe('brief.md');
+		expect(JSON.stringify(request)).not.toMatch(/rejected\.example|\$249|\$19|\$10/);
+	});
+
+	it('carries only the selected heading links for an explicit MPN selection', () => {
+		const request = composeFromMpns(linked, ['WIDGET-100'], { source: 'brief.md' });
+		expect(request.root.children?.[0]?.sources).toEqual([
+			{ locator: 'https://parts.example/widget' }
+		]);
+		expect(JSON.stringify(request)).not.toMatch(
+			/rejected\.example|shop\.example|vendor\.example|\$/
+		);
+	});
+
+	it('keeps two markdown destinations on one line, without turning them into part numbers', () => {
+		const doc = parseMarkdown(`### Cart T — Links
+1. [Widget](https://parts.example/widget) [datasheet](https://parts.example/spec.pdf)
+`);
+		const node = composeFromCart(doc, 'Cart T', { source: 'brief.md' }).root.children?.[0];
+		expect(node?.sources).toEqual([
+			{ locator: 'https://parts.example/widget' },
+			{ locator: 'https://parts.example/spec.pdf' }
+		]);
+		expect(node?.name).toBe('Widget datasheet');
+		expect(node?.mpn).toBeNull();
+	});
+
+	it('keeps bare URL query strings and balanced parentheses, excluding prose punctuation', () => {
+		const doc = parseMarkdown(`### Cart T — Links
+1. Widget — https://parts.example/spec(v2)?a=1&b=2, (http://shop.example/widget).
+`);
+		expect(
+			composeFromCart(doc, 'Cart T', { source: 'brief.md' }).root.children?.[0]?.sources
+		).toEqual([
+			{ locator: 'https://parts.example/spec(v2)?a=1&b=2' },
+			{ locator: 'http://shop.example/widget' }
+		]);
+	});
+
+	it('reads titled and angle-wrapped markdown links without extracting URLs from titles', () => {
+		const doc = parseMarkdown(`### Cart T — Links
+1. [Widget](<https://parts.example/spec(v2)> "see https://title.example") [local](docs/spec.pdf)
+`);
+		const node = composeFromCart(doc, 'Cart T', { source: 'brief.md' }).root.children?.[0];
+		expect(node?.sources).toEqual([
+			{ locator: 'https://parts.example/spec(v2)' },
+			{ locator: 'docs/spec.pdf' }
+		]);
+		expect(node?.name).toBe('Widget local');
+	});
+});

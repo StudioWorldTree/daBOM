@@ -17,6 +17,8 @@ export interface Candidate {
 	mpn: string | null;
 	/** The `Notes` cell, or the raw cart line. */
 	notes: string | null;
+	/** Link targets on the heading line, before text cleanup. */
+	urls: string[];
 }
 
 /** One numbered line inside a `### Cart X` section. */
@@ -29,6 +31,8 @@ export interface CartLine {
 	qty: number;
 	/** Every backticked code on the line that looks like a part number. */
 	codes: string[];
+	/** Link targets and bare web URLs on this line. */
+	urls: string[];
 }
 
 /** A `### Cart X — ...` section: a named selection the document itself makes. */
@@ -37,6 +41,8 @@ export interface Cart {
 	id: string;
 	/** Full heading text, e.g. `Cart T — T4000 + Rogue-T5`. */
 	title: string;
+	/** Links on the selected cart's heading line. */
+	urls: string[];
 	lines: CartLine[];
 }
 
@@ -75,6 +81,30 @@ const HEADING = /^(#{2,6})\s+(.*)$/;
 const LIST_ITEM = /^\s*\d+\.\s+(.*)$/;
 const QTY_PREFIX = /^(\d+)(?:\s*[–—-]\s*\d+)?\s*[×x]\s+/;
 
+// Inline destinations, including angle brackets, optional titles and paired
+// parentheses in a URL. Keep the label when cleaning the part name.
+const MARKDOWN_LINK =
+	/\[([^\]]*)\]\(\s*(?:<([^>\n]+)>|((?:[^\s()\\]|\\.|\([^()\n]*\))+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g;
+
+/** Read citations before plain() removes markdown destinations. */
+function urlsOnLine(text: string): string[] {
+	const urls: string[] = [];
+	// Consume links first so a target is not also counted as a bare URL.
+	const rest = text.replace(MARKDOWN_LINK, (_link, _label, angled, target) => {
+		urls.push(angled ?? target);
+		return '';
+	});
+	for (const hit of rest.matchAll(/https?:\/\/[^\s<>"'`\[\]]+/gi)) {
+		let url = hit[0].replace(/[.,;:!?]+$/, '');
+		// Prose may wrap a URL in parentheses; keep balanced URL parentheses.
+		while (url.endsWith(')') && url.split(')').length > url.split('(').length) {
+			url = url.slice(0, -1).replace(/[.,;:!?]+$/, '');
+		}
+		urls.push(url);
+	}
+	return [...new Set(urls)];
+}
+
 /**
  * Prices in the brief are a snapshot, and quotes are a separate skill. Strip
  * every money token so no price reaches the tree file as free text.
@@ -90,12 +120,14 @@ export function dropPrices(text: string): string {
 
 /** Strip emphasis, links and code font so a heading reads as a part name. */
 function plain(text: string): string {
-	return text
-		.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-		.replace(/\*{1,3}/g, '')
-		.replace(/`/g, '')
-		.replace(/\s+/g, ' ')
-		.trim();
+	return dropPrices(
+		text
+			.replace(MARKDOWN_LINK, '$1')
+			.replace(/\*{1,3}/g, '')
+			.replace(/`/g, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+	);
 }
 
 /** Heading → part name: drop the em-dash aside and the trailing parenthetical. */
@@ -168,7 +200,8 @@ function cartLine(raw: string): CartLine {
 		raw: dropPrices(plain(raw)),
 		name: plain(body.split(/\s+[–—]\s+/)[0]),
 		qty: qtyHit ? Number(qtyHit[1]) : 1,
-		codes
+		codes,
+		urls: urlsOnLine(raw)
 	};
 }
 
@@ -194,7 +227,8 @@ export function parseMarkdown(markdown: string): ParsedDocument {
 			heading: name,
 			manufacturer: manufacturerOf(name),
 			mpn,
-			notes: notesOf(body)
+			notes: notesOf(body),
+			urls: urlsOnLine(heading.text)
 		});
 	};
 
@@ -208,7 +242,7 @@ export function parseMarkdown(markdown: string): ParsedDocument {
 			heading = { text, level };
 			const cartHit = /^(Cart\s+[A-Z])\b/.exec(plain(text));
 			if (cartHit) {
-				cart = { id: cartHit[1], title: cartTitle(text), lines: [] };
+				cart = { id: cartHit[1], title: cartTitle(text), urls: urlsOnLine(text), lines: [] };
 				carts.push(cart);
 			} else if (level <= 2) {
 				cart = null;
