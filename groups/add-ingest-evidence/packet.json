@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "id": "pkt-add-ingest-evidence-act",
+  "node_id": "add-ingest-evidence",
+  "capability": "bom-ingest",
+  "change_id": "add-ingest-evidence",
+  "goal": "Implement add-ingest-evidence on current main. The contract is openspec/changes/add-ingest-evidence/specs/bom-ingest/spec.md and design.md, accepted in reviews/2026-10-29-re-advise.md. Do not rewrite that contract. POST /api/v1/ingest must ensure sources, item links, and ingest enrichments in the same transaction as the items. Blank source is not a locator and is not 422. Any other locator uses the evidence rule; an illegal locator is 422 and writes nothing. Kind defaults to link for http(s) and notebook otherwise; an existing row keeps its kind. sources[] are links, not field citations. Enrichment value is the persisted value: trim manufacturer and mpn, store notes untrimmed, whitespace-only manufacturer or mpn persists nothing and writes no enrichment. On create, those rules apply to manufacturer, mpn, and notes. On match, only a null manufacturer or mpn this request filled. A child cites the request source when it sets no source of its own, not the parent override. Repeat POST of the same (item, source, field, value) does not insert another. No thoughts, no quotes, no enrichment whose field is source. Check the open boxes in tasks.md. Leave checked advise boxes checked. The gate box is already checked. Run npm test and leave it green. Prior node add-evidence closed pass: stores and routes on a58e71b, living spec folded at 58152f0, npm test 104 passed. Beads close was blocked; that commit is the record.",
+  "non_goals": [
+    "Creating the evidence tables",
+    "Extracting URLs from markdown or changing the ingest skill",
+    "Writing thoughts from ingest",
+    "Writing quotes from ingest",
+    "A route that copies an enrichment onto an item column",
+    "Changing fill-null, floor, mint, or cycle behavior"
+  ],
+  "anchors": [
+    {
+      "symbol": "openspec/changes/add-ingest-evidence/design.md",
+      "invariant": "same transaction; blank source is not 422; illegal locator rolls the tree back; child inherits the request source"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:walkIngest",
+      "invariant": "the source passed to children is the request source, not the parent node override"
+    },
+    {
+      "symbol": "src/lib/server/bom.ts:matchIngestRow",
+      "invariant": "a match fills only a null manufacturer, mpn, or source"
+    },
+    {
+      "symbol": "src/lib/server/evidence.ts:createSource",
+      "invariant": "trimmed locator is identity; a second insert does not change kind or title"
+    }
+  ],
+  "acceptance": {
+    "kind": "command",
+    "command": "npm test"
+  },
+  "out_of_scope": [
+    { "item": "Selected-line URL extraction", "tracked_as": "add-link-extract" },
+    { "item": "Evidence tables and direct evidence routes", "tracked_as": "add-evidence" }
+  ],
+  "constraints": {
+    "permission": "write",
+    "paths": [
+      "src/lib/server/bom.ts",
+      "src/lib/server/api/schemas.ts",
+      "src/lib/types.ts",
+      "src/lib/server/api/ingest-evidence.test.ts",
+      "openspec/changes/add-ingest-evidence/tasks.md"
+    ],
+    "do_not": [
+      "fold",
+      "push",
+      "edit openspec/changes/add-link-extract",
+      "edit the ingest spec delta",
+      "edit skills/ingest-hardware",
+      "flip the banner"
+    ]
+  },
+  "load_class": "ambiguous",
+  "rigor": "architecture",
+  "density": "standard",
+  "surface": "packet-only",
+  "role": "worker",
+  "assignee": {
+    "id": "sol-implement",
+    "kind": "model",
+    "harness": "codex",
+    "interface": "gpt-6.1-sol",
+    "signing": { "mode": "stand-in", "stand_in_id": "sol-implement" }
+  },
+  "requester": {
+    "id": "agt-grok",
+    "kind": "model",
+    "harness": "grok",
+    "signing": { "mode": "stand-in", "stand_in_id": "agt-grok" }
+  }
+}

@@ -651,7 +651,7 @@ describe('daBOM API', () => {
 
 	it('mints a name-only node as a placeholder and reuses it on the next POST', async () => {
 		const body = {
-			source: 'brief',
+			source: 'brief.md',
 			root: {
 				sku: 'kit-ingest-mint',
 				name: 'Mint kit',
@@ -669,7 +669,7 @@ describe('daBOM API', () => {
 		const made = await (await app.request('/items/mobius-bracket-3000')).json();
 		expect(made.status).toBe('placeholder');
 		expect(made.floor).toBe('buy');
-		expect(made.source).toBe('brief');
+		expect(made.source).toBe('brief.md');
 
 		// A name-minted slug that hits a row with no pair is the same identity.
 		const second = await ingest(body);

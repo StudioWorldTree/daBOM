@@ -111,6 +111,8 @@ export type IngestNode = {
 	mpn?: string | null;
 	notes?: string | null;
 	source?: string | null;
+	/** Additional source links; the singular source chooses the field citation. */
+	sources?: { kind?: Source['kind']; locator: string }[];
 	qty?: number;
 	unit?: string;
 	role?: string;

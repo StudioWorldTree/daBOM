@@ -1,7 +1,9 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { SourceLocator } from './api/schemas';
 import { bomLinesToCsv, explodedToCsvLine, type CsvLine, type CsvQuote } from './bom-csv';
-import { bomLines, items, quotes, vendors, type DabomDb } from './db';
+import { bomLines, enrichments, itemSources, items, quotes, vendors, type DabomDb } from './db';
+import { createSource } from './evidence';
 
 /**
  * The handle a transaction callback hands back. Every read/write helper here
@@ -553,6 +555,7 @@ export type IngestNode = {
 	mpn?: string | null;
 	notes?: string | null;
 	source?: string | null;
+	sources?: { kind?: 'notebook' | 'datasheet' | 'link' | 'analysis'; locator: string }[];
 	qty?: number;
 	unit?: string;
 	role?: string;
@@ -573,7 +576,13 @@ export type IngestResult = {
 	children: IngestResult[];
 };
 
-type Resolved = { sku: string; action: 'created' | 'matched'; floor: FloorName };
+type IngestFact = { field: 'manufacturer' | 'mpn' | 'notes'; value: string };
+type Resolved = {
+	sku: string;
+	action: 'created' | 'matched';
+	floor: FloorName;
+	facts: IngestFact[];
+};
 
 async function matchIngestRow(
 	db: Db,
@@ -610,7 +619,10 @@ async function matchIngestRow(
 			.set({ ...patch, updatedAt: new Date() })
 			.where(eq(items.sku, row.sku));
 	}
-	return { sku: row.sku, action: 'matched', floor: row.floor as FloorName };
+	const facts: IngestFact[] = [];
+	if (patch.manufacturer != null) facts.push({ field: 'manufacturer', value: patch.manufacturer });
+	if (patch.mpn != null) facts.push({ field: 'mpn', value: patch.mpn });
+	return { sku: row.sku, action: 'matched', floor: row.floor as FloorName, facts };
 }
 
 async function createIngestRow(
@@ -638,7 +650,12 @@ async function createIngestRow(
 			source: node.source ?? source
 		})
 		.returning();
-	return { sku: row.sku, action: 'created', floor: row.floor as FloorName };
+	const facts: IngestFact[] = [];
+	for (const field of ['manufacturer', 'mpn', 'notes'] as const) {
+		const value = row[field];
+		if (value != null) facts.push({ field, value });
+	}
+	return { sku: row.sku, action: 'created', floor: row.floor as FloorName, facts };
 }
 
 /**
@@ -768,9 +785,68 @@ async function upsertIngestLine(
 	return row.id;
 }
 
+/** Evidence shares the tree transaction; supplemental links never choose a field citation. */
+async function recordIngestEvidence(
+	db: Db,
+	self: Resolved,
+	node: IngestNode,
+	source: string | null
+) {
+	const sourceIds = new Map<string, string>();
+	for (const candidate of [
+		{ locator: source },
+		{ locator: node.source },
+		...(node.sources ?? [])
+	]) {
+		const locator = candidate.locator?.trim();
+		if (!locator) continue;
+		const parsed = SourceLocator.safeParse(locator);
+		if (!parsed.success) throw new HttpError(422, 'Invalid source locator', parsed.error.issues);
+		const document = await createSource(db, {
+			locator: parsed.data,
+			kind:
+				'kind' in candidate && candidate.kind != null
+					? candidate.kind
+					: /^https?:\/\//i.test(locator)
+						? 'link'
+						: 'notebook'
+		});
+		sourceIds.set(locator, document.id);
+		await db
+			.insert(itemSources)
+			.values({ itemSku: self.sku, sourceId: document.id })
+			.onConflictDoNothing();
+	}
+	const supportingLocator = node.source?.trim() || source?.trim();
+	const sourceId = supportingLocator ? sourceIds.get(supportingLocator)! : null;
+	for (const fact of self.facts) {
+		const [existing] = await db
+			.select({ id: enrichments.id })
+			.from(enrichments)
+			.where(
+				and(
+					eq(enrichments.itemSku, self.sku),
+					sourceId == null ? isNull(enrichments.sourceId) : eq(enrichments.sourceId, sourceId),
+					eq(enrichments.field, fact.field),
+					eq(enrichments.value, fact.value)
+				)
+			)
+			.limit(1);
+		if (!existing) {
+			await db.insert(enrichments).values({
+				itemSku: self.sku,
+				sourceId,
+				...fact,
+				method: 'ingest'
+			});
+		}
+	}
+}
+
 async function walkIngest(db: Db, node: IngestNode, source: string | null): Promise<IngestResult> {
 	const children = node.children ?? [];
 	const self = await resolveIngestNode(db, node, source, children.length > 0);
+	await recordIngestEvidence(db, self, node, source);
 	const lines: string[] = [];
 	const kids: IngestResult[] = [];
 	for (const [i, child] of children.entries()) {
@@ -778,7 +854,7 @@ async function walkIngest(db: Db, node: IngestNode, source: string | null): Prom
 		kids.push(kid);
 		lines.push(await upsertIngestLine(db, self.sku, kid.sku, child, i));
 	}
-	return { ...self, lines, children: kids };
+	return { sku: self.sku, action: self.action, floor: self.floor, lines, children: kids };
 }
 
 /**

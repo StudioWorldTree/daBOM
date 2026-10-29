@@ -30,6 +30,8 @@ export const QuoteMethod = z.enum(['api', 'headed', 'crawl', 'seed', 'manual']).
 	example: 'api'
 });
 
+export const SourceKind = z.enum(['notebook', 'datasheet', 'link', 'analysis']);
+
 export const ErrorSchema = z
 	.object({
 		error: z.string(),
@@ -346,6 +348,18 @@ export const IngestNodeSchema = z
 		mpn: z.string().nullable().optional(),
 		notes: z.string().nullable().optional(),
 		source: z.string().nullable().optional(),
+		sources: z
+			.array(
+				z.strictObject({
+					kind: SourceKind.optional(),
+					locator: z.string().openapi({
+						description:
+							'Repository-relative path or absolute http/https URL; blank entries are ignored.'
+					})
+				})
+			)
+			.optional()
+			.openapi({ description: 'Additional source links, not field citations.' }),
 		qty: z.number().int().min(1).optional(),
 		unit: z.string().optional(),
 		role: z.string().optional(),
@@ -385,7 +399,6 @@ export const IngestResultSchema = z
 	})
 	.openapi('IngestResult');
 
-export const SourceKind = z.enum(['notebook', 'datasheet', 'link', 'analysis']);
 export const EnrichmentMethod = z.enum(['ingest', 'manual']);
 
 export const SourceLocator = z
