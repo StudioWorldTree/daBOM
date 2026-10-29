@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "id": "res-add-link-extract-act",
+  "packet_id": "pkt-add-link-extract-act",
+  "node_id": "add-link-extract",
+  "capability": "ingest-skills",
+  "outcome": "pass",
+  "summary": "Selected cart lines and matched headings contribute markdown and bare http(s) URLs as sources. Prices and rejected headings stay out. The POST body is the tree file. npm test: 11 files, 134 tests.",
+  "verification": {
+    "command": "npm test",
+    "exit_code": 0,
+    "test_files_passed": 11,
+    "tests_passed": 134
+  },
+  "artifacts": [
+    "skills/ingest-hardware/SKILL.md",
+    "skills/ingest-hardware/lib/candidates.ts",
+    "skills/ingest-hardware/lib/compose.ts",
+    "skills/ingest-hardware/lib/compose.test.ts",
+    "skills/ingest-hardware/lib/post.test.ts",
+    "openspec/changes/add-link-extract/tasks.md"
+  ],
+  "commit": {
+    "sha": "f9e877a",
+    "paths": [
+      "skills/ingest-hardware",
+      "openspec/changes/add-link-extract",
+      "groups/add-link-extract/packet.json"
+    ]
+  },
+  "persistence": "conductor persist on main",
+  "raw_ref": ".spawns/add-link-extract-1793235249-44695-9a4a0bb8/last.md",
+  "signature": {
+    "mode": "stand-in",
+    "stand_in_id": "sol-implement",
+    "content_hash": "sha256:5ea65d79a40957ef9274325746f96ec28f2f48e9076371ca854c9cdb52c091ad"
+  }
+}
