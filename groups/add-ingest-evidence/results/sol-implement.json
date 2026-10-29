@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "id": "res-add-ingest-evidence-act",
+  "packet_id": "pkt-add-ingest-evidence-act",
+  "node_id": "add-ingest-evidence",
+  "capability": "bom-ingest",
+  "outcome": "pass",
+  "summary": "Ingest writes sources, links, and enrichments in the tree transaction. The worker suite was red on source 'brief'; the conductor moved that mint fixture to brief.md. npm test then passed: 10 files, 128 tests.",
+  "verification": {
+    "command": "npm test",
+    "exit_code": 0,
+    "test_files_passed": 10,
+    "tests_passed": 128
+  },
+  "artifacts": [
+    "src/lib/server/bom.ts",
+    "src/lib/server/api/schemas.ts",
+    "src/lib/types.ts",
+    "src/lib/server/api/ingest-evidence.test.ts",
+    "src/lib/server/api/app.test.ts",
+    "openspec/changes/add-ingest-evidence/tasks.md"
+  ],
+  "commit": {
+    "sha": "2892c42",
+    "paths": [
+      "src/lib/server/bom.ts",
+      "src/lib/server/api/schemas.ts",
+      "src/lib/types.ts",
+      "src/lib/server/api/ingest-evidence.test.ts",
+      "src/lib/server/api/app.test.ts",
+      "openspec/changes/add-ingest-evidence",
+      "groups/add-ingest-evidence/packet.json"
+    ]
+  },
+  "persistence": "conductor persist on main",
+  "raw_ref": ".spawns/add-ingest-evidence-1793234636-7024-fe851c47/last.md",
+  "signature": {
+    "mode": "stand-in",
+    "stand_in_id": "sol-implement",
+    "content_hash": "sha256:ab0ba0f397bad28da7669ffd7b7c33ecb69955162c57e084913dbb79ecc18cd6"
+  }
+}
