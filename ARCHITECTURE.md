@@ -267,6 +267,6 @@ vendor, or quote method, and creates no quote.
 - Item deletion checks BOM usage before deleting anything, then deletes
   quotes and all owned evidence with the item in one transaction. Shared
   sources remain, including sources reached only by another item's citation.
-- Ingest writing evidence and extracting URLs from markdown are later work.
+- Ingest writing evidence has landed (`add-ingest-evidence`). Extracting URLs from markdown remains later work (`add-link-extract`).
 
 **Living spec:** [`openspec/specs/bom-evidence/spec.md`](openspec/specs/bom-evidence/spec.md)

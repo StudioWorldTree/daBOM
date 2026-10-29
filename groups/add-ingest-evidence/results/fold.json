@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "id": "res-add-ingest-evidence-fold",
+  "node_id": "add-ingest-evidence",
+  "outcome": "pass",
+  "summary": "ADDED requirement 'Ingest records sources and enrichments in the same transaction' is on the living bom-ingest spec. Base check was clean (no stale, no unstamped; the delta has no MODIFIED or REMOVED paste). Archive is 2026-10-28-add-ingest-evidence. ADR-007 consequence no longer calls the ingest write later work; URL extraction stays later (add-link-extract). Decision text unchanged. 30 SHALL claims in the delta match the claimed living requirement.",
+  "living_spec_paths": [
+    "openspec/specs/bom-ingest/spec.md"
+  ],
+  "archive_path": "openspec/changes/archive/2026-10-28-add-ingest-evidence",
+  "base_check": {
+    "stale": [],
+    "unstamped": []
+  },
+  "shall_count": {
+    "delta": 30,
+    "living_claimed": 30
+  },
+  "disposition": "pass"
+}
