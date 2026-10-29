@@ -169,7 +169,8 @@ edit of the tree file — not every heading that has a `PN` row.
 PDF sources go through `pdf2md` then the same candidate → selection
 path. No PDF or markdown parser in the app `package.json` or under
 `src/`. Helpers live under `skills/ingest-hardware/`. `sku` stays
-absent unless a human names one. Price cells are dropped.
+absent unless a human names one. Price cells are dropped. Selected-line
+URLs ride the tree as sources, and the POST is still the tree file.
 
 **Why.** Ingest is write-through with no draft store, so the tree file
 is the only place a human sees the tree before it is data. A shopping

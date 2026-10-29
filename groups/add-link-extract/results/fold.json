@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "id": "res-add-link-extract-fold",
+  "node_id": "add-link-extract",
+  "outcome": "pass",
+  "summary": "ADDED requirement 'Selected-line URLs ride the tree' is on the living ingest-skills spec. Base check was clean (no stale, no unstamped). Archive is 2026-10-28-add-link-extract. ADR-005 gained one sentence: selected-line URLs ride the tree as sources, and the POST is still the tree file. Decision text otherwise unchanged. 7 SHALL claims in the delta match the claimed living requirement.",
+  "living_spec_paths": [
+    "openspec/specs/ingest-skills/spec.md"
+  ],
+  "archive_path": "openspec/changes/archive/2026-10-28-add-link-extract",
+  "base_check": {
+    "stale": [],
+    "unstamped": []
+  },
+  "shall_count": {
+    "delta": 7,
+    "living_claimed": 7
+  },
+  "adr_amendment": "ARCHITECTURE.md ADR-005: one sentence that selected-line URLs ride the tree as sources and the POST is still the tree file.",
+  "disposition": "pass"
+}
