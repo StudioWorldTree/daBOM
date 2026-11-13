@@ -80,7 +80,10 @@ routes. PGLite is not an agent surface.
    (see `edgebox-core` / `edgebox-8gb`).
 6. **Price / look up a street source.** Read `skills/price-quote/SKILL.md`.
    `POST /api/v1/quotes`. Failed fetch writes nothing. Keys stay in the
-   environment.
+   environment. Record where a part is bought with
+   `POST /api/v1/items/{sku}/purchase-links {"url": ...}` (name `vendorId`
+   for a marketplace like alibaba.com or amazon.com). A quote with a `url`
+   and no `vendorId` takes that link's vendor; every quote URL becomes a link.
 7. **Read back.** `GET /api/v1/items/{sku}/bom?explode=true` and
    `GET /api/v1/items/{sku}/rollup`.
 

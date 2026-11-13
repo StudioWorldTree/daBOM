@@ -13,6 +13,8 @@ export interface ItemRef {
 	sku: string;
 	manufacturer: string | null;
 	mpn: string | null;
+	/** Standing places to buy it, from `GET /items/{sku}`. One vendor per URL. */
+	purchaseLinks?: { vendorId: string; url: string }[];
 }
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;

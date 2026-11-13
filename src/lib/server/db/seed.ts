@@ -9,6 +9,7 @@ import {
 	itemSources,
 	items,
 	projects,
+	purchaseLinks,
 	quotes,
 	thoughts,
 	thoughtSources,
@@ -27,6 +28,7 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 		await db.delete(enrichments);
 		await db.delete(itemSources);
 		await db.delete(bomLines);
+		await db.delete(purchaseLinks);
 		await db.delete(quotes);
 		await db.delete(items);
 		await db.delete(vendors);
@@ -97,6 +99,15 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 		.where(inArray(items.sku, sql`(select distinct parent_sku from bom_lines)`));
 
 	await backfillSourceLinks(db);
+
+	// Mirrors migration 0005: every quote URL is a place to buy the part.
+	await db.execute(sql`
+		INSERT INTO purchase_links (item_sku, vendor_id, url)
+		SELECT DISTINCT ON (item_sku, url) item_sku, vendor_id, url
+		FROM quotes
+		WHERE url IS NOT NULL AND url <> ''
+		ORDER BY item_sku, url, created_at DESC
+		ON CONFLICT DO NOTHING`);
 
 	const [{ n: after }] = await db.select({ n: count() }).from(items);
 	return { seeded: true, itemCount: after };

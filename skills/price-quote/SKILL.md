@@ -53,9 +53,11 @@ priced in another currency fails the rung.
 
 ### 2. Crawl — Firecrawl on the public product page
 
-The URL is the `url` on the **latest quote row for that (item, vendor)**.
-Seeded rows often carry none, and the `vendors` table holds only a homepage,
-so with no prior URL the rung runs a Firecrawl search on manufacturer plus MPN
+The URL is the item's **purchase link for that vendor**
+(`purchaseLinks` on `GET /items/{sku}`), else the `url` on the latest quote
+row for that (item, vendor). A vendor with a purchase link and no quote yet
+is tried too. The `vendors` table holds only a homepage, so with no URL at
+all the rung runs a Firecrawl search on manufacturer plus MPN
 scoped to the vendor's domain. The URL actually fetched goes on the posted
 row, so the next run does not search again.
 

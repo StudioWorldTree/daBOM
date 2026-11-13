@@ -566,6 +566,111 @@ describe('daBOM API', () => {
 		});
 	});
 
+	describe('purchase links', () => {
+		const send = (url: string, body: unknown, method = 'POST') =>
+			app.request(url, {
+				method,
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+		const links = async (sku: string) =>
+			(await (await app.request(`/items/${sku}/purchase-links`)).json()).purchaseLinks;
+
+		beforeAll(async () => {
+			const item = await send('/items', {
+				sku: 'pl-board',
+				name: 'PL board',
+				kind: 'part',
+				category: 'compute'
+			});
+			expect(item.status, await item.clone().text()).toBe(201);
+			const vendor = await send('/vendors', { id: 'pl-seller', name: 'A seller', url: null });
+			expect(vendor.status).toBe(201);
+		});
+
+		it('seeds a purchase link for every quote URL and shows them on the item', async () => {
+			const rows = await links('t4000-som');
+			expect(rows.map((r: { vendorId: string }) => r.vendorId)).toContain('arrow');
+			const item = await (await app.request('/items/t4000-som')).json();
+			expect(item.purchaseLinks.length).toBe(rows.length);
+		});
+
+		it('takes the vendor from the URL host and drops tracking params', async () => {
+			const res = await send('/items/pl-board/purchase-links', {
+				url: 'https://www.wdlsystems.com/pl-board?utm_source=x&variant=4gb#reviews',
+				label: '4GB'
+			});
+			expect(res.status).toBe(201);
+			const row = await res.json();
+			expect(row.vendorId).toBe('wdl');
+			expect(row.url).toBe('https://www.wdlsystems.com/pl-board?variant=4gb');
+			const again = await send('/items/pl-board/purchase-links', {
+				url: 'https://wdlsystems.com/pl-board?variant=4gb'.replace('://', '://www.')
+			});
+			expect(again.status).toBe(409);
+		});
+
+		it('needs the vendor named for a marketplace URL, then quotes find it from the URL', async () => {
+			const url = 'https://www.alibaba.com/product-detail/PL-Board_1.html';
+			expect((await send('/items/pl-board/purchase-links', { url })).status).toBe(422);
+			const link = await send('/items/pl-board/purchase-links', { url, vendorId: 'pl-seller' });
+			expect(link.status).toBe(201);
+
+			const quote = await send('/quotes', {
+				itemSku: 'pl-board',
+				url: `${url}?spm=a2756.order`,
+				priceCents: 1234,
+				method: 'manual'
+			});
+			expect(quote.status).toBe(201);
+			const q = await quote.json();
+			expect(q.vendorId).toBe('pl-seller');
+			expect(q.url).toBe(url);
+
+			const wrong = await send('/quotes', { itemSku: 'pl-board', vendorId: 'wdl', url });
+			expect(wrong.status).toBe(409);
+		});
+
+		it('refuses a quote with neither vendor nor a URL that names one', async () => {
+			expect((await send('/quotes', { itemSku: 'pl-board', priceCents: 1 })).status).toBe(422);
+			const unknownHost = await send('/quotes', {
+				itemSku: 'pl-board',
+				url: 'https://shop.example.org/pl',
+				priceCents: 1
+			});
+			expect(unknownHost.status).toBe(422);
+			expect((await links('pl-board')).length).toBe(2);
+		});
+
+		it('remembers a quote URL as a purchase link under the quote vendor', async () => {
+			const url = 'https://www.mouser.com/ProductDetail/PL-BOARD';
+			const res = await send('/quotes', {
+				itemSku: 'pl-board',
+				vendorId: 'mouser',
+				url,
+				priceCents: 999
+			});
+			expect(res.status).toBe(201);
+			const row = (await links('pl-board')).find((r: { url: string }) => r.url === url);
+			expect(row?.vendorId).toBe('mouser');
+		});
+
+		it('relabels and removes a link without touching the quotes seen there', async () => {
+			const [first] = await links('pl-board');
+			const patched = await send(`/purchase-links/${first.id}`, { label: 'single board' }, 'PATCH');
+			expect((await patched.json()).label).toBe('single board');
+			expect((await send(`/purchase-links/${first.id}`, { url: 'x' }, 'PATCH')).status).toBe(422);
+			expect((await app.request(`/purchase-links/${first.id}`, { method: 'DELETE' })).status).toBe(
+				200
+			);
+			expect((await links('pl-board')).length).toBe(2);
+			const quotes = (await (await app.request('/quotes')).json()).quotes.filter(
+				(q: { itemSku: string }) => q.itemSku === 'pl-board'
+			);
+			expect(quotes.length).toBe(2);
+		});
+	});
+
 	// --- add-price-access -------------------------------------------------
 	// These run last on purpose: they append quotes to seeded SKUs, and the
 	// roll-up assertions above are written against the seeded numbers.

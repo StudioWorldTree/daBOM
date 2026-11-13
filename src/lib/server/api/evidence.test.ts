@@ -122,7 +122,7 @@ describe('item evidence API', () => {
 		expect(result.sources).toMatchObject([{ id: link.sourceId, kind: 'datasheet', title: null }]);
 		expect(result.enrichments).toEqual([]);
 		expect(result.thoughts).toEqual([]);
-		expect(await (await app.request('/items/linked')).json()).toEqual({ ...before, quotes: [] });
+		expect(await (await app.request('/items/linked')).json()).toEqual({ ...before, quotes: [], purchaseLinks: [] });
 		const reverse = await (await app.request(`/sources/${link.sourceId}`)).json();
 		expect(reverse.items.map((row: { sku: string }) => row.sku)).toEqual(['linked']);
 	});

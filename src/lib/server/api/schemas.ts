@@ -61,6 +61,23 @@ export const QuoteSchema = z
 	})
 	.openapi('Quote');
 
+export const PurchaseLinkSchema = z
+	.object({
+		id: z.string().uuid(),
+		itemSku: z.string(),
+		vendorId: z.string(),
+		url: z.string(),
+		label: z.string().nullable(),
+		vendorSku: z.string().nullable(),
+		notes: z.string().nullable(),
+		createdAt: z.string()
+	})
+	.openapi('PurchaseLink', {
+		description:
+			'A standing place to buy an item: one URL under one vendor. Quotes are prices seen there; ' +
+			'a quote posted with this URL and no vendorId takes this vendor.'
+	});
+
 export const ItemSchema = z
 	.object({
 		sku: z.string(),
@@ -85,7 +102,8 @@ export const ItemSchema = z
 		}),
 		createdAt: z.string(),
 		updatedAt: z.string(),
-		quotes: z.array(QuoteSchema).optional()
+		quotes: z.array(QuoteSchema).optional(),
+		purchaseLinks: z.array(PurchaseLinkSchema).optional()
 	})
 	.openapi('Item');
 
@@ -302,7 +320,10 @@ export const VendorCreateSchema = z
 export const QuoteCreateSchema = z
 	.object({
 		itemSku: z.string().min(1),
-		vendorId: z.string().min(1),
+		vendorId: z.string().min(1).optional().openapi({
+			description:
+				"Omit to take the vendor from `url`: the item's purchase link for that URL, else the one vendor whose home URL shares its host. 422 when neither decides."
+		}),
 		priceCents: z.number().int().nullable().optional(),
 		currency: z.string().default('USD'),
 		url: z.string().nullable().optional(),
@@ -327,6 +348,36 @@ export const QuotePatchSchema = z
 		notes: z.string().nullable().optional()
 	})
 	.openapi('QuotePatch');
+
+export const PurchaseLinkListSchema = z
+	.object({ purchaseLinks: z.array(PurchaseLinkSchema) })
+	.openapi('PurchaseLinkList');
+
+export const PurchaseLinkCreateSchema = z
+	.strictObject({
+		url: z.string().min(1).openapi({
+			description:
+				'Absolute http(s) product URL. Fragment and tracking params (utm_*, spm, ref…) are dropped.',
+			example: 'https://www.pishop.us/product/raspberry-pi-5-8gb/'
+		}),
+		vendorId: z.string().min(1).optional().openapi({
+			description:
+				'Omit when one vendor owns the URL host. Marketplaces (alibaba.com, amazon.com) need it named.'
+		}),
+		label: z.string().nullable().optional().openapi({ example: '4GB, single board' }),
+		vendorSku: z.string().nullable().optional(),
+		notes: z.string().nullable().optional()
+	})
+	.openapi('PurchaseLinkCreate');
+
+export const PurchaseLinkPatchSchema = z
+	.strictObject({
+		vendorId: z.string().min(1).optional(),
+		label: z.string().nullable().optional(),
+		vendorSku: z.string().nullable().optional(),
+		notes: z.string().nullable().optional()
+	})
+	.openapi('PurchaseLinkPatch');
 
 export const LineId = z
 	.string()
@@ -358,6 +409,7 @@ export const ProjectParam = z.object({
 export const LineParam = z.object({ sku: Sku, lineId: LineId });
 export const VendorParam = z.object({ id: VendorId });
 export const QuoteParam = z.object({ id: QuoteId });
+export const PurchaseLinkParam = z.object({ id: QuoteId });
 export const ExplodeQuery = z.object({
 	explode: z.enum(['true', 'false']).optional()
 });

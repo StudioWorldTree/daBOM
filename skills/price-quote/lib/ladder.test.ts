@@ -7,7 +7,7 @@ import {
 	PRICED_PAGE
 } from './fixtures';
 import { refreshVendor, vendorsFor } from './ladder';
-import type { DabomClient, QuoteRow } from './dabom';
+import { startUrl, type DabomClient, type QuoteRow } from './dabom';
 import type { Fetcher } from './api';
 
 const BASE = 'http://dabom.test/api/v1';
@@ -254,5 +254,26 @@ describe('which vendors the ladder tries', () => {
 		const item = { sku: 'resin-shell-front', manufacturer: null, mpn: null };
 		expect(vendorsFor(rows, item)).toEqual(['cti']);
 		expect(vendorsFor([], item)).toEqual([]);
+	});
+
+	it('tries a purchase-link vendor with no quote yet, starting at that link', () => {
+		const url = 'https://www.pishop.us/product/raspberry-pi-5-4gb/';
+		const item = {
+			sku: 'rpi5-4gb',
+			manufacturer: null,
+			mpn: null,
+			purchaseLinks: [{ vendorId: 'pishop', url }]
+		};
+		expect(vendorsFor([], item)).toEqual(['pishop']);
+		expect(startUrl(item, [], 'pishop')).toBe(url);
+		const older = quoteRow({
+			itemSku: 'rpi5-4gb',
+			vendorId: 'pishop',
+			url: 'https://old.example/'
+		});
+		expect(startUrl(item, [older], 'pishop')).toBe(url);
+		expect(startUrl({ ...item, purchaseLinks: [] }, [older], 'pishop')).toBe(
+			'https://old.example/'
+		);
 	});
 });

@@ -22,6 +22,7 @@ import {
 	itemSources,
 	items,
 	projects,
+	purchaseLinks,
 	quotes,
 	thoughts,
 	thoughtSources,
@@ -38,6 +39,15 @@ import {
 } from '../evidence';
 import { csvFilename } from '../bom-csv';
 import { assertProject, getProjectOrThrow, projectView } from '../projects';
+import {
+	findPurchaseLink,
+	hostOf,
+	listPurchaseLinks,
+	normalizeUrl,
+	purchaseLinkDto,
+	rememberPurchaseLink,
+	resolveVendor
+} from '../purchase-links';
 import { enrichmentDto, itemDto, quoteDto, thoughtDto, vendorDto } from './dto';
 import {
 	BomLineCreateSchema,
@@ -72,6 +82,11 @@ import {
 	ProjectParam,
 	ProjectPatchSchema,
 	ProjectSchema,
+	PurchaseLinkCreateSchema,
+	PurchaseLinkListSchema,
+	PurchaseLinkParam,
+	PurchaseLinkPatchSchema,
+	PurchaseLinkSchema,
 	HealthSchema,
 	QuoteCreateSchema,
 	QuoteListSchema,
@@ -206,7 +221,9 @@ export function createApi(db: DabomDb) {
 		}),
 		async (c) => {
 			const { sku } = c.req.valid('param');
-			return c.json(itemDto(await getItemOrThrow(db, sku)));
+			const item = await getItemOrThrow(db, sku);
+			const links = await listPurchaseLinks(db, sku);
+			return c.json({ ...itemDto(item), purchaseLinks: links.map(purchaseLinkDto) });
 		}
 	);
 
@@ -276,6 +293,7 @@ export function createApi(db: DabomDb) {
 			}
 			await db.transaction(async (tx) => {
 				await tx.delete(quotes).where(eq(quotes.itemSku, sku));
+				await tx.delete(purchaseLinks).where(eq(purchaseLinks.itemSku, sku));
 				await tx
 					.delete(thoughtSources)
 					.where(
@@ -562,13 +580,44 @@ export function createApi(db: DabomDb) {
 			tags: ['Quotes'],
 			summary: 'Add a quote',
 			request: { body: json(QuoteCreateSchema, 'Quote') },
-			responses: { 201: json(QuoteSchema, 'Created'), ...err(404, 'Missing item or vendor') }
+			responses: {
+				201: json(QuoteSchema, 'Created'),
+				...err(404, 'Missing item or vendor'),
+				...err(409, 'vendorId contradicts the purchase link for url'),
+				...err(422, 'No price on a fetched method, or no vendor resolvable from url')
+			}
 		}),
 		async (c) => {
-			const body = c.req.valid('json');
-			await getItemOrThrow(db, body.itemSku);
-			const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, body.vendorId) });
-			if (!vendor) throw new HttpError(404, `Vendor ${body.vendorId} not found`);
+			const input = c.req.valid('json');
+			await getItemOrThrow(db, input.itemSku);
+			const url = input.url ? normalizeUrl(input.url) : null;
+			const listed = url ? await findPurchaseLink(db, input.itemSku, url) : null;
+
+			// The vendor is named, or it comes from the URL. One URL sells
+			// under one vendor per item, so a named vendor that contradicts a
+			// recorded purchase link is a mistake, not a second seller.
+			let vendorId = input.vendorId;
+			if (!vendorId) {
+				const resolved = url ? await resolveVendor(db, input.itemSku, url) : null;
+				if (!resolved) {
+					throw new HttpError(
+						422,
+						url
+							? `Cannot tell the vendor from ${hostOf(url)}; pass vendorId, or POST /items/${input.itemSku}/purchase-links with one first`
+							: 'vendorId is required when the quote has no url'
+					);
+				}
+				vendorId = resolved.vendorId;
+			} else if (listed && listed.vendorId !== vendorId) {
+				throw new HttpError(
+					409,
+					`${url} is listed for ${input.itemSku} under vendor ${listed.vendorId}, not ${vendorId}`,
+					{ purchaseLinkId: listed.id }
+				);
+			}
+			const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, vendorId) });
+			if (!vendor) throw new HttpError(404, `Vendor ${vendorId} not found`);
+			const body = { ...input, vendorId, url };
 
 			// A failed fetch is not a quote. A fetched method that carries no
 			// price, or no date for that price, is a login wall or a parse
@@ -606,6 +655,8 @@ export function createApi(db: DabomDb) {
 							)
 						);
 				}
+				// A URL a price was seen at is a place to buy the part.
+				if (url) await rememberPurchaseLink(tx, { itemSku: body.itemSku, vendorId, url });
 				return inserted;
 			});
 			return c.json(quoteDto(row), 201);
@@ -657,6 +708,124 @@ export function createApi(db: DabomDb) {
 
 			const [row] = await db.update(quotes).set(patch).where(eq(quotes.id, id)).returning();
 			return c.json(quoteDto(row));
+		}
+	);
+
+	async function getPurchaseLinkOrThrow(id: string) {
+		const row = await db.query.purchaseLinks.findFirst({ where: eq(purchaseLinks.id, id) });
+		if (!row) throw new HttpError(404, `Purchase link ${id} not found`);
+		return row;
+	}
+
+	async function assertVendor(id: string) {
+		const vendor = await db.query.vendors.findFirst({ where: eq(vendors.id, id) });
+		if (!vendor) throw new HttpError(404, `Vendor ${id} not found; POST /vendors first`);
+	}
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/items/{sku}/purchase-links',
+			tags: ['Purchase links'],
+			summary: 'Where an item can be bought',
+			request: { params: SkuParam },
+			responses: { 200: json(PurchaseLinkListSchema, 'Purchase links'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { sku } = c.req.valid('param');
+			await getItemOrThrow(db, sku);
+			const rows = await listPurchaseLinks(db, sku);
+			return c.json({ purchaseLinks: rows.map(purchaseLinkDto) });
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/items/{sku}/purchase-links',
+			tags: ['Purchase links'],
+			summary: 'Add a place to buy an item',
+			description:
+				'The URL is normalized (fragment and tracking params dropped). With no vendorId, the vendor ' +
+				'is the one vendor whose home URL shares the host; a marketplace URL needs vendorId. ' +
+				'Quotes later posted with this URL and no vendorId take this vendor.',
+			request: { params: SkuParam, body: json(PurchaseLinkCreateSchema, 'Purchase link') },
+			responses: {
+				201: json(PurchaseLinkSchema, 'Created'),
+				...err(404, 'Missing item or vendor'),
+				...err(409, 'URL already listed for this item'),
+				...err(422, 'Bad URL, or vendor not resolvable from its host')
+			}
+		}),
+		async (c) => {
+			const { sku } = c.req.valid('param');
+			const body = c.req.valid('json');
+			await getItemOrThrow(db, sku);
+			const url = normalizeUrl(body.url);
+			const existing = await findPurchaseLink(db, sku, url);
+			if (existing) {
+				throw new HttpError(409, `${url} is already listed for ${sku}`, {
+					purchaseLinkId: existing.id
+				});
+			}
+			let vendorId = body.vendorId;
+			if (!vendorId) {
+				const resolved = await resolveVendor(db, sku, url);
+				if (!resolved) {
+					throw new HttpError(
+						422,
+						`No single vendor owns ${hostOf(url)}; pass vendorId (POST /vendors first if it is new)`
+					);
+				}
+				vendorId = resolved.vendorId;
+			}
+			await assertVendor(vendorId);
+			const [row] = await db
+				.insert(purchaseLinks)
+				.values({ ...body, itemSku: sku, vendorId, url })
+				.returning();
+			return c.json(purchaseLinkDto(row), 201);
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'patch',
+			path: '/purchase-links/{id}',
+			tags: ['Purchase links'],
+			summary: 'Relabel a purchase link or fix its vendor (the URL is its identity)',
+			request: { params: PurchaseLinkParam, body: json(PurchaseLinkPatchSchema, 'Patch') },
+			responses: { 200: json(PurchaseLinkSchema, 'Updated'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { id } = c.req.valid('param');
+			const patch = c.req.valid('json');
+			const existing = await getPurchaseLinkOrThrow(id);
+			if (Object.keys(patch).length === 0) return c.json(purchaseLinkDto(existing));
+			if (patch.vendorId) await assertVendor(patch.vendorId);
+			const [row] = await db
+				.update(purchaseLinks)
+				.set(patch)
+				.where(eq(purchaseLinks.id, id))
+				.returning();
+			return c.json(purchaseLinkDto(row));
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'delete',
+			path: '/purchase-links/{id}',
+			tags: ['Purchase links'],
+			summary: 'Remove a purchase link (quotes seen there stay)',
+			request: { params: PurchaseLinkParam },
+			responses: { 200: json(PurchaseLinkSchema, 'Deleted'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { id } = c.req.valid('param');
+			const existing = await getPurchaseLinkOrThrow(id);
+			await db.delete(purchaseLinks).where(eq(purchaseLinks.id, id));
+			return c.json(purchaseLinkDto(existing));
 		}
 	);
 
@@ -835,6 +1004,11 @@ export function createApi(db: DabomDb) {
 				'`priceCents`, `url`, `method` and `checkedAt` are immutable, and a correction is a new row',
 				'with method `manual`.',
 				'',
+				'**Purchase links.** /items/{sku}/purchase-links lists the standing URLs an item is bought at,',
+				'one vendor per URL. A quote posted with `url` and no `vendorId` takes the vendor of that link,',
+				'else the one vendor whose home URL shares the host; marketplaces need the vendor named once.',
+				'Every quote URL is remembered as a purchase link. A refresh walks these URLs.',
+				'',
 				'**Ingest.** POST /ingest writes a JSON tree of items and BOM lines through the same',
 				'tables in one transaction. There is no draft store and any non-2xx writes nothing.',
 				'JSON is the only body: markdown and PDF are 415 and belong to the ingest skills.',
@@ -857,6 +1031,7 @@ export function createApi(db: DabomDb) {
 			{ name: 'BOM' },
 			{ name: 'Vendors' },
 			{ name: 'Quotes' },
+			{ name: 'Purchase links' },
 			{ name: 'Ingest' },
 			{ name: 'Evidence' }
 		]

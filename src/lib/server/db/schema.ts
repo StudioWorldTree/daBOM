@@ -133,6 +133,34 @@ export const quotes = pgTable(
 	]
 );
 
+/**
+ * Where a part can be bought: one row per (item, URL), carrying the vendor
+ * that URL sells under. A quote is a price seen at a moment; a purchase
+ * link is the standing place to look, and it is how a quote posted with
+ * only a URL finds its vendor.
+ */
+export const purchaseLinks = pgTable(
+	'purchase_links',
+	{
+		id: uuid('id').primaryKey().defaultRandom(),
+		itemSku: text('item_sku')
+			.notNull()
+			.references(() => items.sku),
+		vendorId: text('vendor_id')
+			.notNull()
+			.references(() => vendors.id),
+		url: text('url').notNull(),
+		label: text('label'),
+		vendorSku: text('vendor_sku'),
+		notes: text('notes'),
+		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('purchase_links_item_url_uidx').on(t.itemSku, t.url),
+		index('purchase_links_vendor_idx').on(t.vendorId)
+	]
+);
+
 export const bomLines = pgTable(
 	'bom_lines',
 	{
@@ -231,6 +259,7 @@ export const thoughtSources = pgTable(
 
 export const itemsRelations = relations(items, ({ many }) => ({
 	quotes: many(quotes),
+	purchaseLinks: many(purchaseLinks),
 	bomLines: many(bomLines, { relationName: 'bomParent' }),
 	usedIn: many(bomLines, { relationName: 'bomChild' })
 }));
@@ -242,6 +271,11 @@ export const vendorsRelations = relations(vendors, ({ many }) => ({
 export const quotesRelations = relations(quotes, ({ one }) => ({
 	item: one(items, { fields: [quotes.itemSku], references: [items.sku] }),
 	vendor: one(vendors, { fields: [quotes.vendorId], references: [vendors.id] })
+}));
+
+export const purchaseLinksRelations = relations(purchaseLinks, ({ one }) => ({
+	item: one(items, { fields: [purchaseLinks.itemSku], references: [items.sku] }),
+	vendor: one(vendors, { fields: [purchaseLinks.vendorId], references: [vendors.id] })
 }));
 
 export const bomLinesRelations = relations(bomLines, ({ one }) => ({
@@ -265,6 +299,7 @@ export type Vendor = typeof vendors.$inferSelect;
 export type NewVendor = typeof vendors.$inferInsert;
 export type Quote = typeof quotes.$inferSelect;
 export type NewQuote = typeof quotes.$inferInsert;
+export type PurchaseLink = typeof purchaseLinks.$inferSelect;
 export type BomLine = typeof bomLines.$inferSelect;
 export type NewBomLine = typeof bomLines.$inferInsert;
 export type Source = typeof sources.$inferSelect;

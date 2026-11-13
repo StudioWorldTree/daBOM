@@ -2,7 +2,7 @@
 
 Living. ADRs inline. Amend rather than delete when reality diverges.
 
-This file answers *why it is shaped this way*. Behavior that is true of the
+This file answers _why it is shaped this way_. Behavior that is true of the
 running system belongs in `openspec/specs/`.
 
 ---
@@ -117,8 +117,7 @@ lie.
 **Blast:** `POST /ingest`, item identity, BOM write-through.
 
 **Decision.** `POST /api/v1/ingest` upserts `items` and `bom_lines` in
-one transaction. No draft store. JSON tree only; markdown and PDF are
-415. Any non-2xx rolls the whole tree back. Quotes are not written.
+one transaction. No draft store. JSON tree only; markdown and PDF are 415. Any non-2xx rolls the whole tree back. Quotes are not written.
 
 Identity per node, in this order: (manufacturer, MPN) pair match
 (reuse that SKU even if the payload supplied a different one); MPN-only
@@ -315,3 +314,32 @@ thing.
   reset floor, status and description). Applies to items and BOM lines.
 
 **Living spec:** [`openspec/specs/bom-projects/spec.md`](openspec/specs/bom-projects/spec.md)
+
+---
+
+### ADR-009: Purchase links are standing; quotes are observations ✅
+
+**Status:** Accepted 2026-11-12 (`add-purchase-links`).
+**Blast:** `purchase_links` table, `POST /quotes`, REST/OpenAPI, price-quote skill, item page.
+
+**Decision.** Where a part is bought is its own row: `purchase_links`
+(item, URL, vendor), unique per (item, URL). A quote may omit `vendorId`
+when its URL resolves one — the item's link for that URL, else the one
+vendor whose home URL shares the host. Every quote URL is remembered as a
+link. URLs are normalized (no fragment, no tracking params) wherever they
+are stored or matched.
+
+**Why.** Quote URLs were the only record of where to buy, so a listing
+with no price yet was lost, and marketplaces (Alibaba, Amazon) host many
+sellers under one domain — the host cannot name the vendor, but a link
+recorded once can.
+
+**Consequences.**
+
+- One URL, one vendor per item: a quote naming a different vendor for a
+  listed URL is 409.
+- The price ladder tries link vendors with no quote yet and starts its
+  crawl at the link.
+- Deleting a link keeps the quotes seen there.
+
+**Living spec:** [`openspec/specs/bom-purchase-links/spec.md`](openspec/specs/bom-purchase-links/spec.md)

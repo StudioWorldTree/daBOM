@@ -7,6 +7,15 @@
 	let errorMsg = $state('');
 	let pending = $state(false);
 
+	/** Newest priced quote seen at a purchase link's URL. */
+	function lastSeen(url: string) {
+		const seen = (data.item.quotes ?? []).filter((q) => q.url === url && q.priceCents != null);
+		return seen.reduce<(typeof seen)[number] | null>(
+			(best, q) => (!best || (q.checkedAt ?? '') >= (best.checkedAt ?? '') ? q : best),
+			null
+		);
+	}
+
 	async function addLine(e: Event) {
 		e.preventDefault();
 		errorMsg = '';
@@ -275,6 +284,32 @@
 		{/if}
 	</section>
 
+	{#if data.item.purchaseLinks && data.item.purchaseLinks.length}
+		<section>
+			<h2>Where to buy</h2>
+			<ul>
+				{#each data.item.purchaseLinks as link (link.id)}
+					{@const seen = lastSeen(link.url)}
+					<li>
+						<a href={link.url} target="_blank" rel="noopener noreferrer">{link.vendorId}</a>
+						{#if link.label}
+							· {link.label}{/if}
+						{#if seen}
+							· <strong>{money(seen.priceCents, seen.currency)}</strong>
+							{#if seen.checkedAt}
+								on {seen.checkedAt}{/if}
+						{:else}
+							· no price yet
+						{/if}
+						{#if link.vendorSku}
+							<div class="who">{link.vendorSku}</div>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
+
 	{#if data.item.quotes && data.item.quotes.length}
 		<section>
 			<h2>Quotes</h2>
@@ -282,7 +317,12 @@
 				{#each data.item.quotes as q (q.id)}
 					<li>
 						<strong>{money(q.priceCents, q.currency)}</strong>
-						· {q.vendorId}
+						·
+						{#if q.url}
+							<a href={q.url} target="_blank" rel="noopener noreferrer">{q.vendorId}</a>
+						{:else}
+							{q.vendorId}
+						{/if}
 						{#if q.isPreferred}
 							· preferred{/if}
 						{#if q.checkedAt}

@@ -1,5 +1,5 @@
 /**
- * The daBOM client. HTTP only: `GET /items/{sku}`, `GET /quotes`, and the one
+ * The daBOM client. HTTP only: `GET /items/{sku}` (with its purchase links), `GET /quotes`, and the one
  * write, `POST /api/v1/quotes`. The skill never opens the local Postgres file
  * and never imports the app's server code, so the 422 guards and the
  * supersede-preferred transaction apply to every row it writes.
@@ -49,8 +49,18 @@ export async function getItem(client: DabomClient, sku: string): Promise<ItemRef
 	const body = (await readJson(
 		await client.fetch(`${client.base}/items/${encodeURIComponent(sku)}`),
 		`GET /items/${sku}`
-	)) as { sku: string; manufacturer: string | null; mpn: string | null };
-	return { sku: body.sku, manufacturer: body.manufacturer ?? null, mpn: body.mpn ?? null };
+	)) as {
+		sku: string;
+		manufacturer: string | null;
+		mpn: string | null;
+		purchaseLinks?: { vendorId: string; url: string }[];
+	};
+	return {
+		sku: body.sku,
+		manufacturer: body.manufacturer ?? null,
+		mpn: body.mpn ?? null,
+		purchaseLinks: (body.purchaseLinks ?? []).map(({ vendorId, url }) => ({ vendorId, url }))
+	};
 }
 
 /** Every quote, newest first within an (item, vendor) pair. */
@@ -62,7 +72,16 @@ export async function listQuotes(client: DabomClient): Promise<QuoteRow[]> {
 }
 
 /**
- * The crawl rung's starting URL, per the advise pin: the URL on the latest
+ * The crawl rung's starting URL: the item's purchase link for that vendor,
+ * else the latest quote URL for the pair.
+ */
+export function startUrl(item: ItemRef, rows: QuoteRow[], vendorId: string): string | null {
+	const link = item.purchaseLinks?.find((l) => l.vendorId === vendorId);
+	return link?.url ?? latestQuoteUrl(rows, item.sku, vendorId);
+}
+
+/**
+ * The fallback starting URL, per the advise pin: the URL on the latest
  * quote row for that (item, vendor). `GET /quotes` already orders newest
  * first inside a pair, so the first hit is the latest. Null means the ladder
  * has to search for a page instead.

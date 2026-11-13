@@ -13,7 +13,7 @@ import { crawlRung } from './crawl';
 import {
 	fetchDate,
 	getItem,
-	latestQuoteUrl,
+	startUrl,
 	listQuotes,
 	postQuote,
 	vendorDomain,
@@ -55,13 +55,16 @@ export interface VendorResult {
 const NOT_A_STOREFRONT = new Set(['print', 'tbd']);
 
 /**
- * Which vendors to try for one item: the vendors it already has quotes for,
+ * Which vendors to try for one item: the vendors it has purchase links or quotes for,
  * plus every API vendor once the item carries an MPN. The exact-MPN rule then
  * stops the ladder posting a Digi-Key quote for a part Digi-Key does not
  * carry.
  */
 export function vendorsFor(rows: QuoteRow[], item: ItemRef): string[] {
-	const seen = rows.filter((row) => row.itemSku === item.sku).map((row) => row.vendorId);
+	const seen = [
+		...(item.purchaseLinks ?? []).map((link) => link.vendorId),
+		...rows.filter((row) => row.itemSku === item.sku).map((row) => row.vendorId)
+	];
 	const api = item.mpn ? ['digikey', 'mouser', 'arrow'] : [];
 	return [...new Set([...seen, ...api])].filter((id) => !NOT_A_STOREFRONT.has(id));
 }
@@ -82,7 +85,7 @@ export async function refreshVendor(
 		async () => {
 			const domain = await vendorDomain(client, vendorId);
 			return crawlRung(deps, {
-				startUrl: latestQuoteUrl(rows, item.sku, vendorId),
+				startUrl: startUrl(item, rows, vendorId),
 				searchQuery: [item.manufacturer, item.mpn].filter(Boolean).join(' ') || item.sku,
 				domain,
 				vendorId

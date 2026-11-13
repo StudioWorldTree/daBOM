@@ -36,6 +36,13 @@
       "when": 1794536525508,
       "tag": "0004_harsh_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794550752704,
+      "tag": "0005_previous_moon_knight",
+      "breakpoints": true
     }
   ]
 }

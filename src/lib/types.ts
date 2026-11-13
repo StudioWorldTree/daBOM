@@ -12,6 +12,17 @@ export type Quote = {
 	notes: string | null;
 };
 
+export type PurchaseLink = {
+	id: string;
+	itemSku: string;
+	vendorId: string;
+	url: string;
+	label: string | null;
+	vendorSku: string | null;
+	notes: string | null;
+	createdAt: string;
+};
+
 export type Item = {
 	sku: string;
 	name: string;
@@ -34,6 +45,7 @@ export type Item = {
 	createdAt: string;
 	updatedAt: string;
 	quotes?: Quote[];
+	purchaseLinks?: PurchaseLink[];
 };
 
 export type Project = {
