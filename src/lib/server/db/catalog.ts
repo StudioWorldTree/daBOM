@@ -1,4 +1,4 @@
-import type { NewBomLine, NewItem, NewQuote, NewVendor } from './schema';
+import type { NewBomLine, NewItem, NewProject, NewQuote, NewVendor } from './schema';
 
 const SRC = '../AICamera/docs/SHOPPING.md';
 const CAM = '../AICamera/docs/CAMERAS.md';
@@ -35,6 +35,16 @@ export const seedVendors: NewVendor[] = [
 // `floor` is required here even though the column has a default: an untagged
 // row is a silent `buy`, and the seed is the crib every explode reads from.
 // `foundry` is reserved by the living spec and stays out of the seed.
+/** Product lines. A project kit nobody else in the project consumes is a variant. */
+export const seedProjects: NewProject[] = [
+	{
+		slug: 'ai-camera',
+		name: 'AI Camera',
+		description:
+			'All Systems Go AI camera: Thor body carts, the hybrid plant, and the satellite kit.'
+	}
+];
+
 type SeedItem = NewItem & { floor: 'buy' | 'assemble'; quote?: Omit<NewQuote, 'itemSku'> };
 
 export const seedItems: SeedItem[] = [
@@ -861,6 +871,7 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'kit-lab',
+		project: 'ai-camera',
 		name: 'Cart S — lab brick',
 		kind: 'kit',
 		floor: 'assemble',
@@ -873,6 +884,7 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'kit-prod',
+		project: 'ai-camera',
 		name: 'Cart T — T4000 + Rogue-T5',
 		kind: 'kit',
 		floor: 'assemble',
@@ -884,6 +896,7 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'kit-sat',
+		project: 'ai-camera',
 		name: 'Optional satellites',
 		kind: 'kit',
 		floor: 'assemble',
@@ -896,6 +909,7 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'kit-cine',
+		project: 'ai-camera',
 		name: 'Cart C — cine /i body',
 		kind: 'kit',
 		floor: 'assemble',
@@ -907,6 +921,7 @@ export const seedItems: SeedItem[] = [
 	},
 	{
 		sku: 'kit-hybrid-plant',
+		project: 'ai-camera',
 		name: 'Hybrid plant — 1 body + 2 sats',
 		kind: 'kit',
 		floor: 'assemble',

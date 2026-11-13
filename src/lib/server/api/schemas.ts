@@ -6,6 +6,12 @@ export const Sku = z
 	.regex(/^[a-z0-9][a-z0-9-]*$/, 'sku must be lowercase kebab-case')
 	.openapi({ example: 't4000-som', param: { name: 'sku', in: 'path' } });
 
+export const ProjectSlug = z
+	.string()
+	.min(1)
+	.regex(/^[a-z0-9][a-z0-9-]*$/, 'project slug must be lowercase kebab-case')
+	.openapi({ example: 'edgebox' });
+
 export const ItemKind = z.enum(['part', 'assembly', 'kit']);
 export const ItemFloor = z.enum(['buy', 'assemble', 'foundry']);
 export const ItemCategory = z.enum([
@@ -74,6 +80,9 @@ export const ItemSchema = z
 		depthMm: z.number().int().nullable(),
 		wattsTypical: z.number().int().nullable(),
 		wattsMax: z.number().int().nullable(),
+		project: z.string().nullable().openapi({
+			description: 'Slug of the project this item belongs to, or null. A project kit is a variant.'
+		}),
 		createdAt: z.string(),
 		updatedAt: z.string(),
 		quotes: z.array(QuoteSchema).optional()
@@ -98,18 +107,30 @@ export const ItemCreateSchema = z
 		heightMm: z.number().int().nullable().optional(),
 		depthMm: z.number().int().nullable().optional(),
 		wattsTypical: z.number().int().nullable().optional(),
-		wattsMax: z.number().int().nullable().optional()
+		wattsMax: z.number().int().nullable().optional(),
+		project: ProjectSlug.nullable().optional()
 	})
 	.openapi('ItemCreate');
 
-export const ItemPatchSchema = ItemCreateSchema.partial().omit({ sku: true }).openapi('ItemPatch');
+// Zod applies `.default()` even under `.partial()`, so a patch derived from
+// the create schema would reset floor, status and description on every call.
+// Patch schemas strip the defaults: a field the body omits stays as stored.
+export const ItemPatchSchema = ItemCreateSchema.extend({
+	floor: ItemFloor,
+	status: ItemStatus,
+	description: z.string()
+})
+	.partial()
+	.omit({ sku: true })
+	.openapi('ItemPatch');
 
 export const ItemListQuery = z.object({
 	q: z.string().optional().openapi({ example: 'thor' }),
 	kind: ItemKind.optional(),
 	floor: ItemFloor.optional(),
 	category: ItemCategory.optional(),
-	status: ItemStatus.optional()
+	status: ItemStatus.optional(),
+	project: ProjectSlug.optional()
 });
 
 export const ItemListSchema = z
@@ -188,7 +209,13 @@ export const BomLineCreateSchema = z
 	})
 	.openapi('BomLineCreate');
 
-export const BomLinePatchSchema = BomLineCreateSchema.partial()
+export const BomLinePatchSchema = BomLineCreateSchema.extend({
+	unit: z.string(),
+	role: z.string(),
+	optional: z.boolean(),
+	sortOrder: z.number().int()
+})
+	.partial()
 	.omit({ childSku: true })
 	.openapi('BomLinePatch');
 
@@ -325,6 +352,9 @@ export const VendorId = z
 	});
 
 export const SkuParam = z.object({ sku: Sku });
+export const ProjectParam = z.object({
+	slug: ProjectSlug.openapi({ param: { name: 'slug', in: 'path' } })
+});
 export const LineParam = z.object({ sku: Sku, lineId: LineId });
 export const VendorParam = z.object({ id: VendorId });
 export const QuoteParam = z.object({ id: QuoteId });
@@ -522,3 +552,42 @@ export const SourceEvidenceSchema = z
 		items: z.array(ItemSchema)
 	})
 	.openapi('SourceEvidence');
+
+// --- projects -----------------------------------------------------------
+
+export const ProjectSchema = z
+	.object({
+		slug: z.string(),
+		name: z.string(),
+		description: z.string(),
+		createdAt: z.string(),
+		updatedAt: z.string(),
+		variants: z.array(ItemSchema).openapi({
+			description:
+				'Member kits that are built here (floor assemble) and that no other member consumes: the configurations you ship.'
+		}),
+		shared: z.array(ItemSchema).openapi({
+			description:
+				'Every other member: sub-kits and assemblies the variants consume, bought bundles, parts.'
+		})
+	})
+	.openapi('Project');
+
+export const ProjectListSchema = z
+	.object({ projects: z.array(ProjectSchema) })
+	.openapi('ProjectList');
+
+export const ProjectCreateSchema = z
+	.object({
+		slug: ProjectSlug,
+		name: z.string().min(1),
+		description: z.string().default('')
+	})
+	.openapi('ProjectCreate');
+
+export const ProjectPatchSchema = z
+	.object({
+		name: z.string().min(1).optional(),
+		description: z.string().optional()
+	})
+	.openapi('ProjectPatch');

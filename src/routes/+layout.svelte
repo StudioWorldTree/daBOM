@@ -7,7 +7,7 @@
 	let open = $state(false);
 
 	const links = [
-		{ href: '/', label: 'Crib' },
+		{ href: '/', label: 'Projects' },
 		{ href: '/items', label: 'Items' },
 		{ href: '/api/v1/docs', label: 'OpenAPI', external: true }
 	];
@@ -37,9 +37,7 @@
 		</a>
 		<nav class="desk" aria-label="Primary">
 			{#each links as link (link.href)}
-				<a
-					href={link.href}
-					aria-current={!link.external && active(link.href) ? 'page' : undefined}
+				<a href={link.href} aria-current={!link.external && active(link.href) ? 'page' : undefined}
 					>{link.label}</a
 				>
 			{/each}

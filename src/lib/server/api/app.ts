@@ -21,6 +21,7 @@ import {
 	enrichments,
 	itemSources,
 	items,
+	projects,
 	quotes,
 	thoughts,
 	thoughtSources,
@@ -36,6 +37,7 @@ import {
 	sourceEvidence
 } from '../evidence';
 import { csvFilename } from '../bom-csv';
+import { assertProject, getProjectOrThrow, projectView } from '../projects';
 import { enrichmentDto, itemDto, quoteDto, thoughtDto, vendorDto } from './dto';
 import {
 	BomLineCreateSchema,
@@ -65,6 +67,11 @@ import {
 	ItemPatchSchema,
 	ItemSchema,
 	LineParam,
+	ProjectCreateSchema,
+	ProjectListSchema,
+	ProjectParam,
+	ProjectPatchSchema,
+	ProjectSchema,
 	HealthSchema,
 	QuoteCreateSchema,
 	QuoteListSchema,
@@ -142,6 +149,7 @@ export function createApi(db: DabomDb) {
 			if (q.floor) filters.push(eq(items.floor, q.floor));
 			if (q.category) filters.push(eq(items.category, q.category));
 			if (q.status) filters.push(eq(items.status, q.status));
+			if (q.project) filters.push(eq(items.project, q.project));
 			if (q.q) {
 				const like = `%${q.q}%`;
 				filters.push(
@@ -181,6 +189,7 @@ export function createApi(db: DabomDb) {
 			const body = c.req.valid('json');
 			const existing = await db.query.items.findFirst({ where: eq(items.sku, body.sku) });
 			if (existing) throw new HttpError(409, `SKU ${body.sku} already exists`);
+			await assertProject(db, body.project);
 			const [row] = await db.insert(items).values(body).returning();
 			return c.json(itemDto(row), 201);
 		}
@@ -218,6 +227,7 @@ export function createApi(db: DabomDb) {
 			const { sku } = c.req.valid('param');
 			const current = await getItemOrThrow(db, sku);
 			const patch = c.req.valid('json');
+			await assertProject(db, patch.project);
 			// Second door on the same invariant as the BOM-line insert guard:
 			// an item with lines must stay able to hold them. Demoting an
 			// `assemble` kit to `buy` is allowed and turns its build list into
@@ -851,6 +861,114 @@ export function createApi(db: DabomDb) {
 			{ name: 'Evidence' }
 		]
 	});
+
+	// --- projects -------------------------------------------------------
+	// A project groups the kits you ship as variants (EdgeBox 1–16 GB) with
+	// the assemblies and bundles they share. Membership is `items.project`.
+
+	const projectJson = async (row: typeof projects.$inferSelect) => {
+		const view = await projectView(db, row);
+		return {
+			slug: view.slug,
+			name: view.name,
+			description: view.description,
+			createdAt: view.createdAt.toISOString(),
+			updatedAt: view.updatedAt.toISOString(),
+			variants: view.variants.map(itemDto),
+			shared: view.shared.map(itemDto)
+		};
+	};
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/projects',
+			tags: ['Projects'],
+			summary: 'List projects with their variants and shared members',
+			responses: { 200: json(ProjectListSchema, 'Projects') }
+		}),
+		async (c) => {
+			const rows = await db.select().from(projects).orderBy(projects.name);
+			return c.json({ projects: await Promise.all(rows.map(projectJson)) });
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'post',
+			path: '/projects',
+			tags: ['Projects'],
+			summary: 'Create a project. Assign items with PATCH /items/{sku} {project}.',
+			request: { body: json(ProjectCreateSchema, 'New project') },
+			responses: {
+				201: json(ProjectSchema, 'Created'),
+				...err(409, 'Slug exists'),
+				...err(422, 'Invalid')
+			}
+		}),
+		async (c) => {
+			const body = c.req.valid('json');
+			const existing = await db.query.projects.findFirst({ where: eq(projects.slug, body.slug) });
+			if (existing) throw new HttpError(409, `Project ${body.slug} already exists`);
+			const [row] = await db.insert(projects).values(body).returning();
+			return c.json(await projectJson(row), 201);
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'get',
+			path: '/projects/{slug}',
+			tags: ['Projects'],
+			summary: 'Get a project with its variants and shared members',
+			request: { params: ProjectParam },
+			responses: { 200: json(ProjectSchema, 'Project'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { slug } = c.req.valid('param');
+			return c.json(await projectJson(await getProjectOrThrow(db, slug)));
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'patch',
+			path: '/projects/{slug}',
+			tags: ['Projects'],
+			summary: 'Rename or re-describe a project',
+			request: { params: ProjectParam, body: json(ProjectPatchSchema, 'Patch') },
+			responses: { 200: json(ProjectSchema, 'Updated'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { slug } = c.req.valid('param');
+			await getProjectOrThrow(db, slug);
+			const [row] = await db
+				.update(projects)
+				.set({ ...c.req.valid('json'), updatedAt: new Date() })
+				.where(eq(projects.slug, slug))
+				.returning();
+			return c.json(await projectJson(row));
+		}
+	);
+
+	app.openapi(
+		createRoute({
+			method: 'delete',
+			path: '/projects/{slug}',
+			tags: ['Projects'],
+			summary: 'Delete a project. Its items stay and lose their project.',
+			request: { params: ProjectParam },
+			responses: { 200: json(ProjectSchema, 'Deleted'), ...err(404, 'Missing') }
+		}),
+		async (c) => {
+			const { slug } = c.req.valid('param');
+			const row = await getProjectOrThrow(db, slug);
+			const view = await projectJson(row);
+			await db.update(items).set({ project: null }).where(eq(items.project, slug));
+			await db.delete(projects).where(eq(projects.slug, slug));
+			return c.json(view);
+		}
+	);
 
 	app.get('/docs', swaggerUI({ url: '/api/v1/openapi.json' }));
 

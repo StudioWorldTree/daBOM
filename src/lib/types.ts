@@ -30,9 +30,22 @@ export type Item = {
 	depthMm: number | null;
 	wattsTypical: number | null;
 	wattsMax: number | null;
+	project: string | null;
 	createdAt: string;
 	updatedAt: string;
 	quotes?: Quote[];
+};
+
+export type Project = {
+	slug: string;
+	name: string;
+	description: string;
+	createdAt: string;
+	updatedAt: string;
+	/** Built kits no other member consumes: the configurations you ship. */
+	variants: Item[];
+	/** Sub-kits, shared assemblies, bundles and parts in the project. */
+	shared: Item[];
 };
 
 export type BomLine = {

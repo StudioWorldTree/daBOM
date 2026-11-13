@@ -463,6 +463,109 @@ describe('daBOM API', () => {
 		});
 	});
 
+	// PATCH is sparse: a field the body leaves out keeps its value. Create
+	// defaults (floor buy, status candidate, empty description, role '') must
+	// never ride along on a patch.
+	it('PATCH /items leaves unnamed fields alone', async () => {
+		const before = await (await app.request('/items/kit-prod')).json();
+		const res = await app.request('/items/kit-prod', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ notes: 'sparse patch probe' })
+		});
+		expect(res.status).toBe(200);
+		const after = await res.json();
+		expect(after.floor).toBe(before.floor);
+		expect(after.status).toBe(before.status);
+		expect(after.description).toBe(before.description);
+		expect(after.notes).toBe('sparse patch probe');
+	});
+
+	it('PATCH a BOM line leaves unnamed fields alone', async () => {
+		const bom = await (await app.request('/items/kit-prod/bom')).json();
+		const line = bom.lines.find((l: { role: string }) => l.role !== '') ?? bom.lines[0];
+		const res = await app.request(`/items/kit-prod/bom/${line.id}`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ qty: line.qty })
+		});
+		expect(res.status).toBe(200);
+		const after = await res.json();
+		expect(after.role).toBe(line.role);
+		expect(after.optional).toBe(line.optional);
+		expect(after.sortOrder).toBe(line.sortOrder);
+	});
+
+	// --- add-projects --------------------------------------------------------
+	// A project's variants are the built kits no other member consumes.
+
+	describe('projects and variants', () => {
+		const send = (url: string, body: unknown, method = 'POST') =>
+			app.request(url, {
+				method,
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+		const skus = (rows: { sku: string }[]) => rows.map((r) => r.sku);
+
+		it('seeds the AI camera with its carts as variants and kit-sat as shared', async () => {
+			const res = await app.request('/projects/ai-camera');
+			expect(res.status).toBe(200);
+			const p = await res.json();
+			expect(skus(p.variants).sort()).toEqual(
+				['kit-cine', 'kit-hybrid-plant', 'kit-lab', 'kit-prod'].sort()
+			);
+			expect(skus(p.shared)).toEqual(['kit-sat']);
+			expect((await (await app.request('/items/kit-prod')).json()).project).toBe('ai-camera');
+		});
+
+		it('groups size variants, orders them numerically, and keeps the core shared', async () => {
+			expect((await send('/projects', { slug: 'px', name: 'PX' })).status).toBe(201);
+			expect((await send('/projects', { slug: 'px', name: 'again' })).status).toBe(409);
+			const mk = (sku: string, kind: string) =>
+				send('/items', {
+					sku,
+					name: sku.toUpperCase(),
+					kind,
+					floor: kind === 'part' ? 'buy' : 'assemble',
+					category: 'kit',
+					project: 'px'
+				});
+			expect((await mk('px-core', 'assembly')).status).toBe(201);
+			for (const n of ['16', '2', '8']) {
+				expect((await mk(`px-${n}gb`, 'kit')).status).toBe(201);
+				expect((await send(`/items/px-${n}gb/bom`, { childSku: 'px-core', qty: 1 })).status).toBe(
+					201
+				);
+			}
+			const p = await (await app.request('/projects/px')).json();
+			expect(skus(p.variants)).toEqual(['px-2gb', 'px-8gb', 'px-16gb']);
+			expect(skus(p.shared)).toEqual(['px-core']);
+
+			const listed = await (await app.request('/items?project=px')).json();
+			expect(listed.total).toBe(4);
+			const all = await (await app.request('/projects')).json();
+			expect(all.projects.map((x: { slug: string }) => x.slug)).toContain('px');
+		});
+
+		it('refuses an unknown project and frees members when a project is deleted', async () => {
+			const bad = await send('/items', {
+				sku: 'px-orphan',
+				name: 'orphan',
+				kind: 'kit',
+				category: 'kit',
+				project: 'no-such-project'
+			});
+			expect(bad.status).toBe(422);
+			expect((await send('/items/px-2gb', { project: 'nope' }, 'PATCH')).status).toBe(422);
+
+			expect((await send('/projects/px', { name: 'PX renamed' }, 'PATCH')).status).toBe(200);
+			expect((await app.request('/projects/px', { method: 'DELETE' })).status).toBe(200);
+			expect((await app.request('/projects/px')).status).toBe(404);
+			expect((await (await app.request('/items/px-2gb')).json()).project).toBeNull();
+		});
+	});
+
 	// --- add-price-access -------------------------------------------------
 	// These run last on purpose: they append quotes to seeded SKUs, and the
 	// roll-up assertions above are written against the seeded numbers.

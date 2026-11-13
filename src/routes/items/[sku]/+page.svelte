@@ -62,7 +62,14 @@
 </svelte:head>
 
 <div class="shell page">
-	<p class="crumb"><a href="/items">Items</a> / {data.item.sku}</p>
+	<p class="crumb">
+		{#if data.project}
+			<a href="/#p-{data.project.slug}">{data.project.name}</a>
+		{:else}
+			<a href="/items">Items</a>
+		{/if}
+		/ {data.item.sku}
+	</p>
 	<div class="sku">{data.item.sku}</div>
 	<h1>{data.item.name}</h1>
 	<div class="tags">
@@ -70,6 +77,16 @@
 		<span class="tag">{data.item.kind}</span>
 		<span class="tag">{data.item.category}</span>
 	</div>
+	{#if data.project && data.project.variants.length > 1 && data.project.variants.some((v) => v.sku === data.item.sku)}
+		<nav class="variants" aria-label="{data.project.name} variants">
+			{#each data.project.variants as v (v.sku)}
+				<a
+					href="/items/{v.sku}{data.explode ? '?explode=true' : ''}"
+					aria-current={v.sku === data.item.sku ? 'page' : undefined}>{v.name}</a
+				>
+			{/each}
+		</nav>
+	{/if}
 	<p class="lede">{data.item.description}</p>
 	{#if data.item.notes}
 		<p class="notes">{data.item.notes}</p>
@@ -281,6 +298,31 @@
 </div>
 
 <style>
+	.variants {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+		margin: 0.75rem 0 0.25rem;
+	}
+
+	.variants a {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		padding: 0.35rem 0.6rem;
+		border: 1px solid var(--rule);
+		text-decoration: none;
+		color: var(--ink-2);
+		min-height: 32px;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.variants a[aria-current='page'] {
+		border-color: var(--ink);
+		color: var(--ink);
+		box-shadow: inset 0 -2px 0 var(--stamp);
+	}
+
 	.page {
 		padding: 2rem 0 3rem;
 	}

@@ -1,5 +1,5 @@
 import { PGlite } from '@electric-sql/pglite';
-import { eq } from 'drizzle-orm';
+import { eq, getTableColumns } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -55,7 +55,13 @@ describe('evidence migration, boot, and reseed', () => {
 	it('upgrades existing catalog and legacy text without rewriting columns or inventing history', async () => {
 		const { client, db } = await legacyDatabase();
 		try {
-			await db.insert(items).values(seedItems.map(({ quote: _quote, ...row }) => row));
+			// The legacy schema predates `items.project` (0004). Drizzle names
+			// every schema column on insert, so lend the column for the
+			// writes and take it back before the upgrade under test.
+			await client.exec('alter table items add column project text');
+			await db
+				.insert(items)
+				.values(seedItems.map(({ quote: _quote, project: _project, ...row }) => row));
 			await db.insert(items).values([
 				{
 					sku: 'legacy-whitespace',
@@ -74,9 +80,11 @@ describe('evidence migration, boot, and reseed', () => {
 				{ sku: 'legacy-blank', name: 'Blank', kind: 'part', category: 'compute', source: ' \n\t ' },
 				{ sku: 'legacy-null', name: 'Null', kind: 'part', category: 'compute' }
 			]);
-			const before = await db.select().from(items).orderBy(items.sku);
+			await client.exec('alter table items drop column project');
+			const { project: _legacy, ...legacyColumns } = getTableColumns(items);
+			const before = await db.select(legacyColumns).from(items).orderBy(items.sku);
 			await migrate(db, { migrationsFolder: migrations });
-			expect(await db.select().from(items).orderBy(items.sku)).toEqual(before);
+			expect(await db.select(legacyColumns).from(items).orderBy(items.sku)).toEqual(before);
 			const links = await catalogLinks(db);
 			expect(links.filter((row) => !row.sku.startsWith('legacy-'))).toEqual(expectedLinks);
 			expect(links.filter((row) => row.sku.startsWith('legacy-'))).toEqual([

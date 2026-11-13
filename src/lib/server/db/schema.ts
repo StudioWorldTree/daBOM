@@ -50,6 +50,18 @@ export const sourceKinds = ['notebook', 'datasheet', 'link', 'analysis'] as cons
 export const enrichmentMethods = ['ingest', 'manual'] as const;
 export const enrichmentFields = ['manufacturer', 'mpn', 'notes'] as const;
 
+/**
+ * A product line in the crib (EdgeBox, the AI camera). Its kits are its
+ * variants; an item belongs to at most one project.
+ */
+export const projects = pgTable('projects', {
+	slug: text('slug').primaryKey(),
+	name: text('name').notNull(),
+	description: text('description').notNull().default(''),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});
+
 export const items = pgTable(
 	'items',
 	{
@@ -70,6 +82,7 @@ export const items = pgTable(
 		depthMm: integer('depth_mm'),
 		wattsTypical: integer('watts_typical'),
 		wattsMax: integer('watts_max'),
+		project: text('project').references(() => projects.slug, { onDelete: 'set null' }),
 		createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 		updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
 	},
@@ -77,7 +90,8 @@ export const items = pgTable(
 		index('items_kind_idx').on(t.kind),
 		index('items_category_idx').on(t.category),
 		index('items_status_idx').on(t.status),
-		index('items_floor_idx').on(t.floor)
+		index('items_floor_idx').on(t.floor),
+		index('items_project_idx').on(t.project)
 	]
 );
 
@@ -245,6 +259,8 @@ export const bomLinesRelations = relations(bomLines, ({ one }) => ({
 
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
+export type Project = typeof projects.$inferSelect;
+export type NewProject = typeof projects.$inferInsert;
 export type Vendor = typeof vendors.$inferSelect;
 export type NewVendor = typeof vendors.$inferInsert;
 export type Quote = typeof quotes.$inferSelect;

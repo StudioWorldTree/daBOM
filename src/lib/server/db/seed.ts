@@ -1,6 +1,6 @@
 import { count, inArray, sql } from 'drizzle-orm';
 import type { PgliteDatabase } from 'drizzle-orm/pglite';
-import { seedBoms, seedItems, seedVendors } from './catalog';
+import { seedBoms, seedItems, seedProjects, seedVendors } from './catalog';
 import { backfillSourceLinks } from './evidence';
 import * as schema from './schema';
 import {
@@ -8,6 +8,7 @@ import {
 	enrichments,
 	itemSources,
 	items,
+	projects,
 	quotes,
 	thoughts,
 	thoughtSources,
@@ -29,9 +30,11 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 		await db.delete(quotes);
 		await db.delete(items);
 		await db.delete(vendors);
+		await db.delete(projects);
 	}
 
 	await db.insert(vendors).values(seedVendors).onConflictDoNothing();
+	await db.insert(projects).values(seedProjects).onConflictDoNothing();
 
 	for (const row of seedItems) {
 		const { quote, ...item } = row;
@@ -57,6 +60,7 @@ export async function seed(db: DabomDb, opts: { force?: boolean } = {}) {
 					depthMm: item.depthMm,
 					wattsTypical: item.wattsTypical,
 					wattsMax: item.wattsMax,
+					project: item.project,
 					updatedAt: new Date()
 				}
 			});

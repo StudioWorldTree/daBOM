@@ -6,7 +6,9 @@
 	let { data }: { data: PageData } = $props();
 
 	function preferredCents(item: (typeof data.items)[number]) {
-		const q = item.quotes?.find((x) => x.isPreferred && x.priceCents != null) ?? item.quotes?.find((x) => x.priceCents != null);
+		const q =
+			item.quotes?.find((x) => x.isPreferred && x.priceCents != null) ??
+			item.quotes?.find((x) => x.priceCents != null);
 		return q?.priceCents ?? null;
 	}
 
@@ -27,8 +29,7 @@
 </svelte:head>
 
 <div class="shell page">
-	<h1>Catalog</h1>
-	<p class="lede">{data.total} items. Leaves have empty BOMs. Assemblies and kits do not.</p>
+	<h1>Items <span class="count">{data.total}</span></h1>
 
 	<form class="filters" onsubmit={onSubmit}>
 		<label class="field">
@@ -75,6 +76,14 @@
 </div>
 
 <style>
+	.count {
+		font-family: var(--font-mono);
+		font-size: 0.9rem;
+		font-weight: 400;
+		color: var(--ink-3);
+		vertical-align: middle;
+	}
+
 	.page {
 		padding: 2rem 0 3rem;
 	}

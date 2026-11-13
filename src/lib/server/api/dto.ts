@@ -41,6 +41,7 @@ export function itemDto(row: Item & { quotes?: Quote[] }) {
 		depthMm: row.depthMm,
 		wattsTypical: row.wattsTypical,
 		wattsMax: row.wattsMax,
+		project: row.project ?? null,
 		createdAt: iso(row.createdAt) ?? '',
 		updatedAt: iso(row.updatedAt) ?? '',
 		quotes: row.quotes?.map(quoteDto)

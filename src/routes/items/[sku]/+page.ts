@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { Bom, Item, Rollup, WhereUsed } from '$lib/types';
+import type { Bom, Item, Project, Rollup, WhereUsed } from '$lib/types';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, params, url }) => {
@@ -18,5 +18,10 @@ export const load: PageLoad = async ({ fetch, params, url }) => {
 	const used = (await usedRes.json()) as WhereUsed;
 	const rollup = (await rollRes.json()) as Rollup;
 	const catalog = catalogRes.ok ? ((await catalogRes.json()) as { items: Item[] }).items : [];
-	return { item, bom, used, rollup, catalog, explode };
+	let project: Project | null = null;
+	if (item.project) {
+		const res = await fetch(`/api/v1/projects/${item.project}`);
+		if (res.ok) project = (await res.json()) as Project;
+	}
+	return { item, bom, used, rollup, catalog, explode, project };
 };

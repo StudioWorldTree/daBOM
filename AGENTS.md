@@ -69,11 +69,19 @@ routes. PGLite is not an agent surface.
    `data/dabom/`.
 4. **One SKU, one BOM line, a vendor.** `POST /api/v1/items`,
    `POST /api/v1/items/{sku}/bom`, `POST /api/v1/vendors` as the spec
-   says. Floor defaults `buy`. Only `assemble` parents take children.
-5. **Price / look up a street source.** Read `skills/price-quote/SKILL.md`.
+   says. Floor defaults `buy`. `assemble` parents take children (build
+   list); a bought `kit`/`assembly` takes children as bundle contents
+   (priced once, on the bundle). A bought `part` takes none.
+5. **Projects and variants.** A product line is a project
+   (`POST /api/v1/projects`); put an item in it with
+   `PATCH /api/v1/items/{sku} {"project": "<slug>"}`. Variants are derived:
+   the project's built kits nothing else in the project consumes. Shape
+   size/config variants as one shared core assembly + one kit per variant
+   (see `edgebox-core` / `edgebox-8gb`).
+6. **Price / look up a street source.** Read `skills/price-quote/SKILL.md`.
    `POST /api/v1/quotes`. Failed fetch writes nothing. Keys stay in the
    environment.
-6. **Read back.** `GET /api/v1/items/{sku}/bom?explode=true` and
+7. **Read back.** `GET /api/v1/items/{sku}/bom?explode=true` and
    `GET /api/v1/items/{sku}/rollup`.
 
 Product facts (Thor, HEVC, /i) stay in `../AICamera`. This crib stores

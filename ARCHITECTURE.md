@@ -284,3 +284,34 @@ vendor, or quote method, and creates no quote.
 - Ingest writing evidence has landed (`add-ingest-evidence`). Extracting URLs from markdown remains later work (`add-link-extract`).
 
 **Living spec:** [`openspec/specs/bom-evidence/spec.md`](openspec/specs/bom-evidence/spec.md)
+
+---
+
+### ADR-008: Projects group kits; variants are derived ✅
+
+**Status:** Accepted 2026-11-12 (`add-projects`).
+**Blast:** `projects` table, `items.project`, REST/OpenAPI, seed, crib home.
+
+**Decision.** A project (EdgeBox, AI Camera) is a row in `projects`; an item
+belongs to at most one project through nullable `items.project` (FK, set
+null on project delete). Variants are **derived, not stored**: a project's
+variants are its member kits that are built here (`floor = assemble`) and
+that no other member consumes. Everything else in the project is `shared`
+(the core assembly every variant uses, a sub-kit like `kit-sat`, a bought
+bundle). Variants sort by name with numeric collation (1 GB < 16 GB).
+
+**Why.** EdgeBox ships the same core in five RAM sizes; the AI camera ships
+Cart T, C and S. A variant flag on items would drift the first time a
+variant is folded into another kit; where-used already knows the answer.
+A `variantOf` self-reference needs a "family" item that is not a buildable
+thing.
+
+**Consequences.**
+
+- Assigning an item is `PATCH /items/{sku} {project}`; an unknown project is 422.
+- `GET /projects` is what the crib home renders; kits with no project and
+  `floor = assemble` show as "Unassigned kits". Bought kits stay off the board.
+- PATCH schemas carry no create defaults (found here: a `{project}` patch
+  reset floor, status and description). Applies to items and BOM lines.
+
+**Living spec:** [`openspec/specs/bom-projects/spec.md`](openspec/specs/bom-projects/spec.md)

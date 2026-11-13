@@ -8,8 +8,8 @@
 
 <div class="shell page">
 	<p class="sku">{page.status}</p>
-	<h1>{page.error?.message ?? 'Lost in the crib'}</h1>
-	<p><a href="/">Back to the crib</a></p>
+	<h1>{page.error?.message ?? 'Error'}</h1>
+	<p><a href="/">Back to projects</a></p>
 </div>
 
 <style>
