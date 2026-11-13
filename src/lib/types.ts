@@ -61,6 +61,7 @@ export type BomLine = {
 	path?: string[];
 	qtyEach?: number;
 	qtyRollup?: number;
+	containedBy?: string | null;
 };
 
 export type Bom = {

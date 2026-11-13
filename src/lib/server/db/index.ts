@@ -25,7 +25,9 @@ export function createDb(client: PGlite): DabomDb {
 	return drizzle(client, { schema });
 }
 
-export async function openDb(opts: { dataDir?: string; migrateFolder?: string; seed?: boolean } = {}) {
+export async function openDb(
+	opts: { dataDir?: string; migrateFolder?: string; seed?: boolean } = {}
+) {
 	const client = new PGlite(opts.dataDir ?? DATA_DIR);
 	const db = createDb(client);
 	if (opts.migrateFolder !== '') {

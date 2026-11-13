@@ -1,7 +1,8 @@
 # bom-compose
 
 What **is** built: nested BOMs and manufacturing floor (`add-compose-schema`);
-seeded catalog names floor (`add-floor-seed`).
+seeded catalog names floor (`add-floor-seed`); bought bundles list contents
+(`add-bundle-contents`).
 
 ## Purpose
 
@@ -31,9 +32,11 @@ The system SHALL store a manufacturing floor on each item of `buy`,
 
 ### Requirement: Explode respects floor
 
-The system SHALL treat `buy` and `foundry` items as leaves for explode
-and roll-up. The system SHALL recurse only through `assemble` items.
-The system SHALL reject BOM lines whose parent floor is not `assemble`.
+The system SHALL treat `buy` and `foundry` items as leaves for roll-up.
+The system SHALL recurse for cost only through `assemble` items. The
+system SHALL reject BOM lines whose parent floor is not `assemble`, unless
+the parent is a bought bundle (see "Bought bundles list contents"). A
+bought `part` SHALL NOT take BOM lines.
 
 #### Scenario: Foundry reserved
 
@@ -43,8 +46,42 @@ The system SHALL reject BOM lines whose parent floor is not `assemble`.
 
 #### Scenario: Cannot hang children on a buy leaf
 
-- GIVEN item `t4000-som` with floor `buy`
+- GIVEN item `t4000-som` with floor `buy` and kind `part`
 - WHEN POST `/api/v1/items/t4000-som/bom` with a child
+- THEN the response is 409
+
+### Requirement: Bought bundles list contents
+
+An item whose floor is `buy` or `foundry` and whose kind is `kit` or
+`assembly` is a bundle. The system SHALL accept BOM lines under a bundle
+as its contents. Explode SHALL list contents beneath the bundle and SHALL
+set `containedBy` on each contained row to the nearest bundle sku (null
+otherwise), with `extendedCents` null. Roll-up SHALL charge the bundle's
+own quote and SHALL NOT charge, count as parts, or report missing quotes
+for contained rows. CSV SHALL write `contained_by` and no money on
+contained rows. PATCH SHALL return 409 if it would leave BOM lines on an
+item that is neither `assemble` nor a bundle; demoting an `assemble` kit or
+assembly to `buy` SHALL succeed and turn its lines into contents.
+
+#### Scenario: Bundle priced once
+
+- GIVEN a `buy` kit `bx-bundle` quoted at 1400 with contents hat, case,
+  fan, where the hat also has a loose quote of 700
+- AND an `assemble` kit with 2 × `bx-bundle` and a 5000 board
+- WHEN GET `/rollup` on the kit
+- THEN `requiredCents` is 7800, `missingQuotes` is empty and `partCount` is 2
+
+#### Scenario: Contents on the parts list
+
+- GIVEN the kit above
+- WHEN GET `/bom?explode=true`
+- THEN the hat, case and fan appear with `containedBy` `bx-bundle`,
+  `qtyRollup` 2 and `extendedCents` null
+
+#### Scenario: Bundle cannot become a part
+
+- GIVEN `bx-bundle` with contents
+- WHEN PATCH kind `part`
 - THEN the response is 409
 
 ### Requirement: SKU kebab identity

@@ -24,6 +24,8 @@ export type CsvLine = {
 	productUrl: string | null;
 	priceChecked: string | null;
 	notes: string | null;
+	/** Bundle sku this row ships inside; its money is on the bundle row. */
+	containedBy: string | null;
 };
 
 export type CsvQuote = {
@@ -55,7 +57,8 @@ export const BOM_CSV_HEADER = [
 	'vendor',
 	'product_url',
 	'price_checked',
-	'notes'
+	'notes',
+	'contained_by'
 ] as const;
 
 /** RFC 4180. Numbers stay bare so a spreadsheet can sum them. */
@@ -101,12 +104,14 @@ export function explodedToCsvLine(row: ExplodedRow, quote: CsvQuote | undefined)
 		vendor: quote?.vendorName ?? '',
 		productUrl: quote?.url ?? null,
 		priceChecked: quote?.checkedAt ?? null,
-		notes: row.notes
+		notes: row.notes,
+		containedBy: row.containedBy
 	};
 }
 
 /**
- * One row per exploded line. Money is written only on buy rows, so a sum of
+ * One row per exploded line. Money is written only on buy rows outside a bundle
+ * (`contained_by` blank), so a sum of
  * `ext_for_one_usd` is the known leaf total and does not double-count assemblies.
  * Optional lines are included; filter `optional=no` for the required set.
  * Leading BOM and CRLF so Excel opens the names.
@@ -114,7 +119,8 @@ export function explodedToCsvLine(row: ExplodedRow, quote: CsvQuote | undefined)
 export function bomLinesToCsv(lines: CsvLine[]): string {
 	const body = [BOM_CSV_HEADER.join(',')];
 	for (const line of lines) {
-		const buy = line.floor !== 'assemble';
+		// Contents of a bought bundle carry no money: the bundle row does.
+		const buy = line.floor !== 'assemble' && line.containedBy == null;
 		const unit = buy ? line.unitPriceCents : null;
 		const ext = unit == null ? null : unit * line.qtyForOne;
 		const cells = [
@@ -139,7 +145,8 @@ export function bomLinesToCsv(lines: CsvLine[]): string {
 			buy && unit != null ? line.vendor : '',
 			buy && unit != null ? line.productUrl : '',
 			buy && unit != null ? line.priceChecked : '',
-			line.notes
+			line.notes,
+			line.containedBy
 		];
 		body.push(cells.map((cell) => csvCell(cell)).join(','));
 	}

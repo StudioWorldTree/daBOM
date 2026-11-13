@@ -24,6 +24,7 @@ function line(over: Partial<CsvLine> = {}): CsvLine {
 		productUrl: 'https://www.arrow.com/en/products/900-13834-0000-000/nvidia',
 		priceChecked: '2026-09-01',
 		notes: null,
+		containedBy: null,
 		...over
 	};
 }

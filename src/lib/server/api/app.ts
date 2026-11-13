@@ -9,7 +9,7 @@ import {
 	getItemOrThrow,
 	HttpError,
 	ingestTree,
-	isLeaf,
+	canHaveLines,
 	listBom,
 	rollup,
 	updateBomLine,
@@ -211,21 +211,24 @@ export function createApi(db: DabomDb) {
 			responses: {
 				200: json(ItemSchema, 'Updated'),
 				...err(404, 'Missing'),
-				...err(409, 'Floor demoted while children exist')
+				...err(409, 'Change would leave BOM lines on an item that cannot hold them')
 			}
 		}),
 		async (c) => {
 			const { sku } = c.req.valid('param');
-			await getItemOrThrow(db, sku);
+			const current = await getItemOrThrow(db, sku);
 			const patch = c.req.valid('json');
 			// Second door on the same invariant as the BOM-line insert guard:
-			// an item that already has children cannot be demoted to a leaf.
-			if (patch.floor && patch.floor !== 'assemble') {
+			// an item with lines must stay able to hold them. Demoting an
+			// `assemble` kit to `buy` is allowed and turns its build list into
+			// bundle contents; demoting it to a `part` is not.
+			const next = { floor: patch.floor ?? current.floor, kind: patch.kind ?? current.kind };
+			if ((patch.floor || patch.kind) && !canHaveLines(next)) {
 				const children = await listBom(db, sku);
 				if (children.length) {
 					throw new HttpError(
 						409,
-						`${sku} has ${children.length} BOM lines; cannot set floor ${patch.floor}`,
+						`${sku} has ${children.length} BOM lines; cannot become floor ${next.floor} kind ${next.kind}`,
 						{
 							childLines: children.length
 						}
@@ -343,10 +346,10 @@ export function createApi(db: DabomDb) {
 			const { sku } = c.req.valid('param');
 			const { lines: incoming } = c.req.valid('json');
 			const parent = await getItemOrThrow(db, sku);
-			if (incoming.length && isLeaf(parent)) {
+			if (incoming.length && !canHaveLines(parent)) {
 				throw new HttpError(
 					409,
-					`${sku} has floor ${parent.floor}; only assemble items can have BOM lines`
+					`${sku} has floor ${parent.floor} and kind ${parent.kind}; only assemble items and bought kits/assemblies can have BOM lines`
 				);
 			}
 			for (const line of incoming) {

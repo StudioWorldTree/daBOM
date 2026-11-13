@@ -1,14 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import {
-	enrichments,
-	itemSources,
-	sources,
-	thoughts,
-	thoughtSources,
-	type DabomDb
-} from '../db';
+import { enrichments, itemSources, sources, thoughts, thoughtSources, type DabomDb } from '../db';
 import { openDb } from '../db';
 import type { ItemEvidence } from '../../types';
 import { createApi } from './app';

@@ -102,9 +102,11 @@ default `status` to `placeholder` unless the payload set one.
 
 The system SHALL default new ingest items to `buy`. The system SHALL set
 a node that lists children to `assemble` before inserting its BOM lines
-when that node is new. Promotion is for new nodes only: the system SHALL
-reject ingest that would hang children on an existing `buy` or `foundry`
-item, or retag a `foundry` parent, with 409.
+when that node is new, unless the node names floor `buy` or `foundry` and
+is not kind `part`: then it is created as a bought bundle and its children
+are contents (`add-bundle-contents`). Promotion is for new nodes only: the
+system SHALL reject ingest that would hang children on an existing `buy`
+or `foundry` part, or retag a `foundry` parent, with 409.
 
 #### Scenario: Cannot explode a buy SOM via ingest
 

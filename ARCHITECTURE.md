@@ -28,14 +28,27 @@ is in the schema. T4000 SOM is a leaf until a foundry is contracted.
 
 - Floor is not on `bom_lines`. Opening a child is a property of the child
   in this shop, not of one parent line.
-- POST/PUT a BOM line under a non-assemble parent is 409. PATCH floor to
-  `buy` / `foundry` while children exist is 409.
+- POST/PUT a BOM line under a non-assemble parent is 409 — unless that
+  parent is a bought bundle (see amendment). PATCH that would leave lines on
+  an item that cannot hold them is 409.
 - Kind stays taxonomy. `kind=kit, floor=buy` (a bought dev kit) is legal.
 - Global floor per shop. Same SKU bought in one product and built in
   another makes the column lie; per-line override is a later escape hatch.
 
 **Not decided here.** Ingest (`add-ingest-api`). Foundry-level breakdowns
 when a process is contracted.
+
+**Amendment 2026-11-12 (`add-bundle-contents`).** A bought `kit` or
+`assembly` (leaf floor, kind not `part`) is a **bundle**: its BOM lines are
+contents — what arrives in the box — not a build list. The leaf predicate is
+unchanged for money: the bundle's own quote is the cost. Explode descends
+into a bundle and marks each row `containedBy` with the nearest bundle sku;
+roll-up, partCount, mass, watts and CSV money skip contained rows. A bought
+`part` still takes no lines, so the T4000 SOM stays closed. Why: the EdgeBox
+buys one Alibaba listing (NVMe HAT + case + cooler) that is three parts on the
+parts list and one line on the invoice. Rejected: a separate "offer covers
+these BOM lines" table — more schema for a case seen once; swapping a bundle
+for loose parts is one BOM line edit under this model.
 
 **Living spec:** [`openspec/specs/bom-compose/spec.md`](openspec/specs/bom-compose/spec.md)
 

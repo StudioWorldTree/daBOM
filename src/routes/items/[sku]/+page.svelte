@@ -183,9 +183,10 @@
 									<a href="/items/{line.childSku}">{line.child.name}</a>
 									<div class="sku">{line.childSku}</div>
 									{#if line.optional}<span class="tag">optional</span>{/if}
+									{#if line.containedBy}<span class="tag">in {line.containedBy}</span>{/if}
 								</td>
 								<td>{line.role || '—'}</td>
-								<td>{money(line.extendedCents)}</td>
+								<td>{line.containedBy ? 'in bundle' : money(line.extendedCents)}</td>
 								<td>
 									{#if !data.explode}
 										<button class="btn ghost" type="button" onclick={() => removeLine(line.id)}

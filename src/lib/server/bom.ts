@@ -41,6 +41,22 @@ export function isLeaf(item: { floor: string }) {
 	return item.floor !== 'assemble';
 }
 
+/**
+ * A bought bundle: a leaf that is a `kit` or `assembly`, not a `part`. Its BOM
+ * lines are **contents** — what arrives in the box — not a build list. The
+ * bundle's own quote carries the cost, so explode lists contents (marked
+ * `containedBy`) and roll-up skips them. A bought `part` (the T4000 SOM) still
+ * takes no lines: a die breakdown is not something this shop receives.
+ */
+export function isBundle(item: { floor: string; kind: string }) {
+	return isLeaf(item) && item.kind !== 'part';
+}
+
+/** Who may own BOM lines at all: `assemble` parents (build lists) and bundles (contents). */
+export function canHaveLines(item: { floor: string; kind: string }) {
+	return !isLeaf(item) || isBundle(item);
+}
+
 export type QuoteRow = {
 	vendorId: string;
 	isPreferred: boolean;
@@ -209,13 +225,31 @@ export async function listBom(db: Db, parentSku: string): Promise<BomLineView[]>
 	});
 }
 
-export type ExplodedRow = BomLineView & { path: string[]; qtyEach: number; qtyRollup: number };
+export type ExplodedRow = BomLineView & {
+	path: string[];
+	qtyEach: number;
+	qtyRollup: number;
+	/**
+	 * The nearest bought bundle above this row, or null. A contained row is
+	 * a real part in the box, but its cost, mass and watts ride the bundle's
+	 * own row, so roll-up skips it and its `extendedCents` is null.
+	 */
+	containedBy: string | null;
+};
 
 export async function explodeBom(db: Db, rootSku: string): Promise<ExplodedRow[]> {
 	const out: ExplodedRow[] = [];
 	// An optional kit (the satellite plant on Cart T) is one line. Its leaves
 	// stay optional money, or the required total would still buy them.
-	async function walk(sku: string, path: string[], factor: number, ancestorOptional: boolean) {
+	// Contents of a bought bundle are listed under it and marked with the
+	// bundle's sku, so the parts list is whole and the money is counted once.
+	async function walk(
+		sku: string,
+		path: string[],
+		factor: number,
+		ancestorOptional: boolean,
+		containedBy: string | null
+	) {
 		const lines = await listBom(db, sku);
 		for (const line of lines) {
 			const qtyRollup = factor * line.qty;
@@ -225,14 +259,25 @@ export async function explodeBom(db: Db, rootSku: string): Promise<ExplodedRow[]
 				optional,
 				path: [...path, line.childSku],
 				qtyEach: line.qty,
-				qtyRollup
+				qtyRollup,
+				containedBy,
+				extendedCents: containedBy ? null : line.extendedCents
 			});
 			if (!isLeaf(line.child)) {
-				await walk(line.childSku, [...path, line.childSku], qtyRollup, optional);
+				await walk(line.childSku, [...path, line.childSku], qtyRollup, optional, containedBy);
+			} else if (isBundle(line.child)) {
+				await walk(
+					line.childSku,
+					[...path, line.childSku],
+					qtyRollup,
+					optional,
+					containedBy ?? line.childSku
+				);
 			}
 		}
 	}
-	await walk(rootSku, [rootSku], 1, false);
+	const root = await db.query.items.findFirst({ where: eq(items.sku, rootSku) });
+	await walk(rootSku, [rootSku], 1, false, root && isBundle(root) ? rootSku : null);
 	return out;
 }
 
@@ -296,7 +341,8 @@ export async function exportBomCsv(db: Db, sku: string): Promise<string> {
 					vendor: quoteBySku.get(sku)?.vendorName ?? '',
 					productUrl: quoteBySku.get(sku)?.url ?? null,
 					priceChecked: quoteBySku.get(sku)?.checkedAt ?? null,
-					notes: root.notes
+					notes: root.notes,
+					containedBy: null
 				}
 			];
 	return bomLinesToCsv(lines);
@@ -371,7 +417,29 @@ export async function rollup(db: Db, rootSku: string): Promise<Rollup> {
 		};
 	}
 
-	for (const row of exploded) {
+	// A bundle's own contents (root is the bundle) are all contained, so the
+	// bundle prices itself exactly as a childless leaf does.
+	const costRows = exploded.filter((row) => row.containedBy == null);
+	if (costRows.length === 0 && isLeaf(root)) {
+		const q = pickQuote(root.quotes);
+		return {
+			sku: rootSku,
+			requiredCents: q?.priceCents ?? null,
+			optionalCents: 0,
+			knownRequiredCents: q?.priceCents ?? 0,
+			knownOptionalCents: 0,
+			missingQuotes: q?.priceCents == null ? [rootSku] : [],
+			asOf: q?.checkedAt ?? null,
+			massG: root.massG,
+			wattsTypical: root.wattsTypical,
+			knownMassG: root.massG ?? 0,
+			knownWattsTypical: root.wattsTypical ?? 0,
+			lineCount: exploded.length,
+			partCount: 1
+		};
+	}
+
+	for (const row of costRows) {
 		if (isLeaf(row.child)) {
 			leafSkus.add(row.childSku);
 			const child = await itemOf(row.childSku);
@@ -446,10 +514,10 @@ export async function addBomLine(
 ) {
 	const parent = await getItemOrThrow(db, parentSku);
 	await getItemOrThrow(db, body.childSku);
-	if (isLeaf(parent)) {
+	if (!canHaveLines(parent)) {
 		throw new HttpError(
 			409,
-			`${parentSku} has floor ${parent.floor}; only assemble items can have BOM lines`
+			`${parentSku} has floor ${parent.floor} and kind ${parent.kind}; only assemble items and bought kits/assemblies can have BOM lines`
 		);
 	}
 	if (body.qty < 1) throw new HttpError(422, 'qty must be >= 1');
@@ -589,6 +657,7 @@ async function matchIngestRow(
 	row: {
 		sku: string;
 		floor: string;
+		kind: string;
 		manufacturer: string | null;
 		mpn: string | null;
 		source: string | null;
@@ -599,7 +668,7 @@ async function matchIngestRow(
 ): Promise<Resolved> {
 	// "Cannot explode a buy SOM." Promotion is for nodes this request mints;
 	// an existing leaf keeps its floor and the whole request is 409.
-	if (hasChildren && row.floor !== 'assemble') {
+	if (hasChildren && !canHaveLines(row)) {
 		throw new HttpError(
 			409,
 			`${row.sku} has floor ${row.floor}; ingest cannot hang children on an existing ${row.floor} item`
@@ -632,17 +701,22 @@ async function createIngestRow(
 	source: string | null,
 	hasChildren: boolean
 ): Promise<Resolved> {
+	const kind = node.kind ?? (hasChildren ? 'assembly' : 'part');
+	// A node with children is promoted to `assemble`, unless it names a leaf
+	// floor and is not a `part`: then it is a bought bundle and the children
+	// are its contents.
+	const bundle = hasChildren && node.floor != null && node.floor !== 'assemble' && kind !== 'part';
 	const [row] = await db
 		.insert(items)
 		.values({
 			sku,
 			name: node.name?.trim() || sku,
-			kind: node.kind ?? (hasChildren ? 'assembly' : 'part'),
+			kind,
 			category: node.category ?? 'accessory',
 			// Not `candidate`: a node ingest invented has nobody standing
 			// behind it until someone looks.
 			status: node.status ?? 'placeholder',
-			floor: hasChildren ? 'assemble' : (node.floor ?? 'buy'),
+			floor: hasChildren && !bundle ? 'assemble' : (node.floor ?? 'buy'),
 			description: node.description ?? '',
 			manufacturer: node.manufacturer?.trim() || null,
 			mpn: node.mpn?.trim() || null,

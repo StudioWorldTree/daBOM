@@ -191,7 +191,9 @@ describe('daBOM API', () => {
 		expect(cineRoll.knownOptionalCents).toBe(60000);
 
 		const plant = await (await app.request('/items/kit-hybrid-plant/bom')).json();
-		expect(plant.lines.map((line: { childSku: string }) => line.childSku)).toContain('asm-sat-product');
+		expect(plant.lines.map((line: { childSku: string }) => line.childSku)).toContain(
+			'asm-sat-product'
+		);
 		expect(plant.lines.map((line: { childSku: string }) => line.childSku)).not.toContain('kit-sat');
 	});
 
@@ -289,11 +291,11 @@ describe('daBOM API', () => {
 		expect(put.status).toBe(409);
 	});
 
-	it('refuses to demote a parent that still has children', async () => {
+	it('refuses to demote a parent that still has children to a bought part', async () => {
 		const demote = await app.request('/items/asm-thor-sandwich', {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ floor: 'buy' })
+			body: JSON.stringify({ floor: 'buy', kind: 'part' })
 		});
 		expect(demote.status).toBe(409);
 		const still = await (await app.request('/items/asm-thor-sandwich')).json();
@@ -322,6 +324,143 @@ describe('daBOM API', () => {
 		expect(roll.missingQuotes).not.toContain('fake-die');
 
 		await db.delete(bomLines).where(eq(bomLines.parentSku, 't4000-som'));
+	});
+
+	// --- add-bundle-contents ------------------------------------------------
+	// A bought kit or assembly lists what is in the box. The bundle's quote is
+	// the money; its contents are parts on the list, never a second charge.
+
+	describe('bought bundle contents', () => {
+		const post = (url: string, body: unknown, method = 'POST') =>
+			app.request(url, {
+				method,
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+
+		beforeAll(async () => {
+			const mk = (sku: string, extra: Record<string, unknown> = {}) =>
+				post('/items', { sku, name: sku, kind: 'part', category: 'accessory', ...extra });
+			expect((await mk('bx-bundle', { kind: 'kit', floor: 'buy' })).status).toBe(201);
+			for (const sku of ['bx-hat', 'bx-case', 'bx-fan', 'bx-board']) {
+				expect((await mk(sku)).status).toBe(201);
+			}
+			expect((await mk('bx-kit', { kind: 'kit', floor: 'assemble', category: 'kit' })).status).toBe(
+				201
+			);
+			for (const child of ['bx-hat', 'bx-case', 'bx-fan']) {
+				expect((await post('/items/bx-bundle/bom', { childSku: child, qty: 1 })).status).toBe(201);
+			}
+			expect((await post('/items/bx-kit/bom', { childSku: 'bx-bundle', qty: 2 })).status).toBe(201);
+			expect((await post('/items/bx-kit/bom', { childSku: 'bx-board', qty: 1 })).status).toBe(201);
+			expect((await post('/vendors', { id: 'bx-vendor', name: 'Bundle vendor' })).status).toBe(201);
+			const quote = (itemSku: string, priceCents: number) =>
+				post('/quotes', {
+					itemSku,
+					vendorId: 'bx-vendor',
+					priceCents,
+					currency: 'USD',
+					method: 'manual',
+					checkedAt: '2026-11-12'
+				});
+			expect((await quote('bx-bundle', 1400)).status).toBe(201);
+			expect((await quote('bx-board', 5000)).status).toBe(201);
+			// A loose price on a content must not be charged on top of the bundle.
+			expect((await quote('bx-hat', 700)).status).toBe(201);
+		});
+
+		it('explode lists contents under the bundle, marked and unpriced', async () => {
+			const body = await (await app.request('/items/bx-kit/bom?explode=true')).json();
+			const bySku = new Map(
+				body.lines.map((l: { childSku: string }) => [l.childSku, l] as const)
+			) as Map<
+				string,
+				{
+					containedBy: string | null;
+					extendedCents: number | null;
+					qtyRollup: number;
+					path: string[];
+				}
+			>;
+			expect([...bySku.keys()].sort()).toEqual(
+				['bx-board', 'bx-bundle', 'bx-case', 'bx-fan', 'bx-hat'].sort()
+			);
+			expect(bySku.get('bx-bundle')?.containedBy).toBeNull();
+			expect(bySku.get('bx-bundle')?.extendedCents).toBe(2800);
+			expect(bySku.get('bx-hat')?.containedBy).toBe('bx-bundle');
+			expect(bySku.get('bx-hat')?.extendedCents).toBeNull();
+			expect(bySku.get('bx-hat')?.qtyRollup).toBe(2);
+			expect(bySku.get('bx-hat')?.path).toEqual(['bx-kit', 'bx-bundle', 'bx-hat']);
+		});
+
+		it('rolls up the bundle price once and never asks for content quotes', async () => {
+			const roll = await (await app.request('/items/bx-kit/rollup')).json();
+			expect(roll.requiredCents).toBe(2 * 1400 + 5000);
+			expect(roll.missingQuotes).toEqual([]);
+			expect(roll.partCount).toBe(2);
+			expect(roll.lineCount).toBe(5);
+
+			const bundle = await (await app.request('/items/bx-bundle/rollup')).json();
+			expect(bundle.requiredCents).toBe(1400);
+			expect(bundle.missingQuotes).toEqual([]);
+			expect(bundle.lineCount).toBe(3);
+		});
+
+		it('writes contents to CSV with contained_by and no money', async () => {
+			const text = await (await app.request('/items/bx-kit/bom.csv')).text();
+			const [header, ...rows] = text
+				.replace(/^\uFEFF/, '')
+				.trim()
+				.split('\r\n');
+			const cols = header.split(',');
+			const at = (name: string) => cols.indexOf(name);
+			const hat = rows.map((r) => r.split(',')).find((r) => r[at('sku')] === 'bx-hat');
+			expect(hat?.[at('contained_by')]).toBe('bx-bundle');
+			expect(hat?.[at('unit_price_usd')]).toBe('');
+			const bundle = rows.map((r) => r.split(',')).find((r) => r[at('sku')] === 'bx-bundle');
+			expect(bundle?.[at('ext_for_one_usd')]).toBe('28.00');
+		});
+
+		it('keeps a bought part closed and a bundle from becoming one', async () => {
+			expect((await post('/items/bx-board/bom', { childSku: 'bx-fan', qty: 1 })).status).toBe(409);
+			expect((await post('/items/bx-bundle', { kind: 'part' }, 'PATCH')).status).toBe(409);
+		});
+
+		it('lets an assemble kit become a bought bundle', async () => {
+			expect(
+				(
+					await post('/items', {
+						sku: 'bx-asm',
+						name: 'bx-asm',
+						kind: 'assembly',
+						floor: 'assemble',
+						category: 'accessory'
+					})
+				).status
+			).toBe(201);
+			expect((await post('/items/bx-asm/bom', { childSku: 'bx-fan', qty: 1 })).status).toBe(201);
+			expect((await post('/items/bx-asm', { floor: 'buy' }, 'PATCH')).status).toBe(200);
+			const body = await (await app.request('/items/bx-asm/bom?explode=true')).json();
+			expect(body.lines[0].containedBy).toBe('bx-asm');
+		});
+
+		it('ingest makes a bundle when a node with children names floor buy', async () => {
+			const res = await post('/ingest', {
+				root: {
+					sku: 'bx-ingest-bundle',
+					name: 'Ingested bundle',
+					kind: 'kit',
+					floor: 'buy',
+					category: 'kit',
+					children: [{ sku: 'bx-case', qty: 1 }]
+				}
+			});
+			expect(res.status).toBe(201);
+			const item = await (await app.request('/items/bx-ingest-bundle')).json();
+			expect(item.floor).toBe('buy');
+			const body = await (await app.request('/items/bx-ingest-bundle/bom?explode=true')).json();
+			expect(body.lines[0].containedBy).toBe('bx-ingest-bundle');
+		});
 	});
 
 	// --- add-price-access -------------------------------------------------

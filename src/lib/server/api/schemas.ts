@@ -161,7 +161,11 @@ export const BomSchema = z
 export const ExplodedRowSchema = BomLineSchema.extend({
 	path: z.array(z.string()),
 	qtyEach: z.number().int(),
-	qtyRollup: z.number().int()
+	qtyRollup: z.number().int(),
+	containedBy: z.string().nullable().openapi({
+		description:
+			'SKU of the nearest bought bundle (a buy/foundry kit or assembly) this row ships inside, or null. Contained rows are real parts but their cost, mass and watts ride the bundle row; roll-up skips them and extendedCents is null.'
+	})
 }).openapi('ExplodedRow');
 
 export const ExplodedBomSchema = z

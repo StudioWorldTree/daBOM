@@ -11,8 +11,18 @@ const CHECKED = '2026-09-01';
 
 export const seedVendors: NewVendor[] = [
 	{ id: 'arrow', name: 'Arrow', url: 'https://www.arrow.com', notes: 'T4000 SOM and AGX kit.' },
-	{ id: 'nvidia', name: 'NVIDIA', url: 'https://www.nvidia.com', notes: 'List prices hiked Jul 2026.' },
-	{ id: 'cti', name: 'Connect Tech', url: 'https://connecttech.com', email: 'sales@connecttech.com' },
+	{
+		id: 'nvidia',
+		name: 'NVIDIA',
+		url: 'https://www.nvidia.com',
+		notes: 'List prices hiked Jul 2026.'
+	},
+	{
+		id: 'cti',
+		name: 'Connect Tech',
+		url: 'https://connecttech.com',
+		email: 'sales@connecttech.com'
+	},
 	{ id: 'wdl', name: 'WDL Systems', url: 'https://www.wdlsystems.com', notes: 'US CTI reseller.' },
 	{ id: 'forecr', name: 'FORECR', url: 'https://www.forecr.io', email: 'sales@forecr.io' },
 	{ id: 'digikey', name: 'Digi-Key', url: 'https://www.digikey.com' },
@@ -101,13 +111,15 @@ export const seedItems: SeedItem[] = [
 		massG: 136,
 		widthMm: 92,
 		heightMm: 108,
-		notes: '2× 10GBASE-T + 1× 2.5G on locking IX. 12 V. Manual CTIM-00160. Quote sales@connecttech.com.',
+		notes:
+			'2× 10GBASE-T + 1× 2.5G on locking IX. 12 V. Manual CTIM-00160. Quote sales@connecttech.com.',
 		quote: {
 			vendorId: 'cti',
 			priceCents: null,
 			currency: 'USD',
 			isPreferred: true,
-			notes: 'Carrier-only is quote. WDL T5000 assemblies $8,225–$12,325 — do not buy those to solder a SOM.'
+			notes:
+				'Carrier-only is quote. WDL T5000 assemblies $8,225–$12,325 — do not buy those to solder a SOM.'
 		}
 	},
 	{
@@ -186,7 +198,8 @@ export const seedItems: SeedItem[] = [
 		widthMm: 87,
 		heightMm: 101,
 		depthMm: 20,
-		notes: 'Measure on the bench. Production wants heatpipes to a radiator, not this brick as the product lid.',
+		notes:
+			'Measure on the bench. Production wants heatpipes to a radiator, not this brick as the product lid.',
 		quote: {
 			vendorId: 'digikey',
 			priceCents: 5600,
@@ -232,7 +245,13 @@ export const seedItems: SeedItem[] = [
 		description: '12 V brick for Rogue-T5.',
 		source: SRC,
 		wattsMax: 252,
-		quote: { vendorId: 'cti', priceCents: null, currency: 'USD', isPreferred: true, notes: 'Quote with the carrier.' }
+		quote: {
+			vendorId: 'cti',
+			priceCents: null,
+			currency: 'USD',
+			isPreferred: true,
+			notes: 'Quote with the carrier.'
+		}
 	},
 	{
 		sku: 'cti-jcb022',
@@ -249,7 +268,12 @@ export const seedItems: SeedItem[] = [
 		heightMm: 57,
 		massG: 45,
 		notes: 'Add later if a sat needs to become a RAW tracker. Bring-up sats are PoE H.265.',
-		quote: { vendorId: 'cti', priceCents: null, currency: 'USD', notes: 'Quote. Mates Rogue-T5 / Gauntlet camera header.' }
+		quote: {
+			vendorId: 'cti',
+			priceCents: null,
+			currency: 'USD',
+			notes: 'Quote. Mates Rogue-T5 / Gauntlet camera header.'
+		}
 	},
 	{
 		sku: 'pyxis-6k-pl',
@@ -267,7 +291,8 @@ export const seedItems: SeedItem[] = [
 		depthMm: 151,
 		massG: 1500,
 		wattsTypical: 20,
-		notes: 'Best match to LENS.md. SDI is 4K60 monitoring, not a Thor CSI input. Mount is not user-swappable.',
+		notes:
+			'Best match to LENS.md. SDI is 4K60 monitoring, not a Thor CSI input. Mount is not user-swappable.',
 		quote: {
 			vendorId: 'bh',
 			priceCents: 367500,
@@ -532,7 +557,8 @@ export const seedItems: SeedItem[] = [
 		description:
 			'Optional bench seat. SDK and UART while writing a satellite. Cooke /i can be patched without this board.',
 		source: CAM,
-		notes: 'Not on the Cart T required buy. A whole camera dev board is not required just for those pins.',
+		notes:
+			'Not on the Cart T required buy. A whole camera dev board is not required just for those pins.',
 		quote: {
 			vendorId: 'tbd',
 			priceCents: 20000,
@@ -599,7 +625,8 @@ export const seedItems: SeedItem[] = [
 		widthMm: 65,
 		heightMm: 65,
 		depthMm: 60,
-		notes: '905 nm Class 1 — still a laser on a film set; flag it. 265 g / $550 does not go on every eyeball.',
+		notes:
+			'905 nm Class 1 — still a laser on a film set; flag it. 265 g / $550 does not go on every eyeball.',
 		quote: {
 			vendorId: 'tbd',
 			priceCents: 55000,
@@ -615,7 +642,8 @@ export const seedItems: SeedItem[] = [
 		floor: 'buy',
 		category: 'network',
 		status: 'placeholder',
-		description: 'Kit item. Thor has no PoE. Two PoE+ sats ≈ 60 W at the PSE. Do not power Thor from this.',
+		description:
+			'Kit item. Thor has no PoE. Two PoE+ sats ≈ 60 W at the PSE. Do not power Thor from this.',
 		source: INT,
 		wattsTypical: 20,
 		wattsMax: 90,
@@ -656,7 +684,13 @@ export const seedItems: SeedItem[] = [
 		status: 'placeholder',
 		description: 'Pocket / PYXIS monitor feed into Thor or a capture dongle.',
 		source: SRC,
-		quote: { vendorId: 'tbd', priceCents: 1500, currency: 'USD', checkedAt: CHECKED, isPreferred: true }
+		quote: {
+			vendorId: 'tbd',
+			priceCents: 1500,
+			currency: 'USD',
+			checkedAt: CHECKED,
+			isPreferred: true
+		}
 	},
 	{
 		sku: 'nvme-1tb',
@@ -677,7 +711,8 @@ export const seedItems: SeedItem[] = [
 			url: 'https://www.amazon.com/dp/B0GK1M1N4V',
 			checkedAt: CHECKED,
 			isPreferred: true,
-			notes: 'Amazon new street. Sold and shipped by Elite100. Three left. Do not buy the used offer.'
+			notes:
+				'Amazon new street. Sold and shipped by Elite100. Three left. Do not buy the used offer.'
 		}
 	},
 	{
@@ -689,7 +724,13 @@ export const seedItems: SeedItem[] = [
 		status: 'placeholder',
 		description: 'Fit-check of the lab brick. Resin is not a heat sink.',
 		source: ENC,
-		quote: { vendorId: 'print', priceCents: 0, currency: 'USD', isPreferred: true, notes: 'Printed. STL in AICamera/docs/cad.' }
+		quote: {
+			vendorId: 'print',
+			priceCents: 0,
+			currency: 'USD',
+			isPreferred: true,
+			notes: 'Printed. STL in AICamera/docs/cad.'
+		}
 	},
 	{
 		sku: 'resin-shell-rear',
@@ -700,7 +741,13 @@ export const seedItems: SeedItem[] = [
 		status: 'placeholder',
 		description: 'Two-part Anycubic bed. Vents the kit fan / TTP.',
 		source: ENC,
-		quote: { vendorId: 'print', priceCents: 0, currency: 'USD', isPreferred: true, notes: 'Printed.' }
+		quote: {
+			vendorId: 'print',
+			priceCents: 0,
+			currency: 'USD',
+			isPreferred: true,
+			notes: 'Printed.'
+		}
 	},
 	{
 		sku: 'pl-i-reader',
@@ -711,8 +758,14 @@ export const seedItems: SeedItem[] = [
 		status: 'placeholder',
 		description: 'Four PL pins, RS-232-ish, milliamps. Not servo power. Sidecar UART into Thor.',
 		source: '../AICamera/docs/LENS.md',
-		notes: 'No catalog SKU yet. Steal the mount PCB off a PYXIS PL if we crack one — not the sensor.',
-		quote: { vendorId: 'tbd', priceCents: null, currency: 'USD', notes: 'Placeholder. Build or harvest.' }
+		notes:
+			'No catalog SKU yet. Steal the mount PCB off a PYXIS PL if we crack one — not the sensor.',
+		quote: {
+			vendorId: 'tbd',
+			priceCents: null,
+			currency: 'USD',
+			notes: 'Placeholder. Build or harvest.'
+		}
 	},
 	{
 		sku: 'ix-industrial-breakout',
@@ -734,7 +787,13 @@ export const seedItems: SeedItem[] = [
 		status: 'candidate',
 		description: 'GMSL2 plant. 8–15 m class. Not 100 m.',
 		source: CAM,
-		quote: { vendorId: 'tbd', priceCents: 4000, currency: 'USD', checkedAt: CHECKED, isPreferred: false }
+		quote: {
+			vendorId: 'tbd',
+			priceCents: 4000,
+			currency: 'USD',
+			checkedAt: CHECKED,
+			isPreferred: false
+		}
 	},
 	{
 		sku: 'v-mount-plate',
@@ -745,7 +804,13 @@ export const seedItems: SeedItem[] = [
 		status: 'placeholder',
 		description: 'Production body back. Remote radiator can live here.',
 		source: POW,
-		quote: { vendorId: 'tbd', priceCents: 8000, currency: 'USD', checkedAt: CHECKED, isPreferred: true }
+		quote: {
+			vendorId: 'tbd',
+			priceCents: 8000,
+			currency: 'USD',
+			checkedAt: CHECKED,
+			isPreferred: true
+		}
 	},
 	{
 		sku: 'asm-lab-shell',
@@ -764,7 +829,8 @@ export const seedItems: SeedItem[] = [
 		floor: 'assemble',
 		category: 'compute',
 		status: 'preferred',
-		description: 'Smallest catalog production stack. ~92 × 108 × 40–55 mm, ~0.7–1.0 kg before battery and lens.',
+		description:
+			'Smallest catalog production stack. ~92 × 108 × 40–55 mm, ~0.7–1.0 kg before battery and lens.',
 		source: CAM,
 		widthMm: 92,
 		heightMm: 108,
@@ -800,7 +866,8 @@ export const seedItems: SeedItem[] = [
 		floor: 'assemble',
 		category: 'kit',
 		status: 'preferred',
-		description: 'Software this week. AGX kit + HDMI mule. Matches the resin shell. Not production T4000.',
+		description:
+			'Software this week. AGX kit + HDMI mule. Matches the resin shell. Not production T4000.',
 		source: SRC,
 		notes: '~$5.8k as of 2026-09-01 before the shell print.'
 	},
@@ -851,15 +918,30 @@ export const seedItems: SeedItem[] = [
 	}
 ];
 
-type SeedBom = Pick<NewBomLine, 'parentSku' | 'childSku' | 'qty' | 'role' | 'notes' | 'optional' | 'sortOrder'>;
+type SeedBom = Pick<
+	NewBomLine,
+	'parentSku' | 'childSku' | 'qty' | 'role' | 'notes' | 'optional' | 'sortOrder'
+>;
 
 export const seedBoms: SeedBom[] = [
-	{ parentSku: 'asm-lab-shell', childSku: 'resin-shell-front', qty: 1, role: 'front', sortOrder: 10 },
+	{
+		parentSku: 'asm-lab-shell',
+		childSku: 'resin-shell-front',
+		qty: 1,
+		role: 'front',
+		sortOrder: 10
+	},
 	{ parentSku: 'asm-lab-shell', childSku: 'resin-shell-rear', qty: 1, role: 'rear', sortOrder: 20 },
 
 	{ parentSku: 'asm-thor-sandwich', childSku: 't4000-som', qty: 1, role: 'som', sortOrder: 10 },
 	{ parentSku: 'asm-thor-sandwich', childSku: 'rogue-t5', qty: 1, role: 'carrier', sortOrder: 20 },
-	{ parentSku: 'asm-thor-sandwich', childSku: 'ats-nvp-3739', qty: 1, role: 'ttp-cooler', sortOrder: 30 },
+	{
+		parentSku: 'asm-thor-sandwich',
+		childSku: 'ats-nvp-3739',
+		qty: 1,
+		role: 'ttp-cooler',
+		sortOrder: 30
+	},
 	{ parentSku: 'asm-thor-sandwich', childSku: 'nvme-1tb', qty: 1, role: 'ring', sortOrder: 40 },
 	{ parentSku: 'asm-thor-sandwich', childSku: 'cti-msg103', qty: 1, role: 'psu', sortOrder: 50 },
 	{
@@ -897,7 +979,13 @@ export const seedBoms: SeedBom[] = [
 		notes: 'If the kit USB stack is easier than CSI.'
 	},
 
-	{ parentSku: 'kit-prod', childSku: 'asm-thor-sandwich', qty: 1, role: 'body-compute', sortOrder: 10 },
+	{
+		parentSku: 'kit-prod',
+		childSku: 'asm-thor-sandwich',
+		qty: 1,
+		role: 'body-compute',
+		sortOrder: 10
+	},
 	{
 		parentSku: 'kit-prod',
 		childSku: 'pyxis-6k-pl',
@@ -925,7 +1013,13 @@ export const seedBoms: SeedBom[] = [
 		notes: 'Monitor picture only. Body 4K is a CSI sensor on the Rogue header, not a bridge card.'
 	},
 
-	{ parentSku: 'kit-cine', childSku: 'asm-thor-sandwich', qty: 1, role: 'body-compute', sortOrder: 10 },
+	{
+		parentSku: 'kit-cine',
+		childSku: 'asm-thor-sandwich',
+		qty: 1,
+		role: 'body-compute',
+		sortOrder: 10
+	},
 	{
 		parentSku: 'kit-cine',
 		childSku: 'pyxis-6k-pl',
@@ -968,7 +1062,13 @@ export const seedBoms: SeedBom[] = [
 		notes: 'Powers the optional turrets. Does not power Thor.'
 	},
 
-	{ parentSku: 'kit-hybrid-plant', childSku: 'asm-thor-sandwich', qty: 1, role: 'body', sortOrder: 10 },
+	{
+		parentSku: 'kit-hybrid-plant',
+		childSku: 'asm-thor-sandwich',
+		qty: 1,
+		role: 'body',
+		sortOrder: 10
+	},
 	{ parentSku: 'kit-hybrid-plant', childSku: 'pl-i-reader', qty: 1, role: 'body-i', sortOrder: 20 },
 	{
 		parentSku: 'kit-hybrid-plant',
@@ -979,8 +1079,20 @@ export const seedBoms: SeedBom[] = [
 		sortOrder: 30,
 		notes: 'Native CSI body on the box. Placeholder until datasheets land.'
 	},
-	{ parentSku: 'kit-hybrid-plant', childSku: 'asm-sat-product', qty: 2, role: 'sat', sortOrder: 40 },
-	{ parentSku: 'kit-hybrid-plant', childSku: 'poe-switch-at', qty: 1, role: 'plant', sortOrder: 50 },
+	{
+		parentSku: 'kit-hybrid-plant',
+		childSku: 'asm-sat-product',
+		qty: 2,
+		role: 'sat',
+		sortOrder: 40
+	},
+	{
+		parentSku: 'kit-hybrid-plant',
+		childSku: 'poe-switch-at',
+		qty: 1,
+		role: 'plant',
+		sortOrder: 50
+	},
 	{
 		parentSku: 'kit-hybrid-plant',
 		childSku: 'livox-mid360s',
@@ -989,5 +1101,11 @@ export const seedBoms: SeedBom[] = [
 		sortOrder: 60,
 		notes: 'One on the rig, Ethernet peer. Not per eyeball.'
 	},
-	{ parentSku: 'kit-hybrid-plant', childSku: 'v-mount-plate', qty: 1, role: 'battery', sortOrder: 70 }
+	{
+		parentSku: 'kit-hybrid-plant',
+		childSku: 'v-mount-plate',
+		qty: 1,
+		role: 'battery',
+		sortOrder: 70
+	}
 ];
